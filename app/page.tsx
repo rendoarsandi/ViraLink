@@ -12,6 +12,10 @@ import {
   Star,
   Twitter,
   Users,
+  Rocket,
+  Search,
+  Share2,
+  Award,
 } from "lucide-react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,46 +26,45 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-background">
       {/* Hero Section */}
       <section className="relative w-full pt-20 pb-24 md:pt-32 md:pb-36 lg:pt-40 lg:pb-48 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/10 via-background to-background" />
-        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/5 via-background to-background" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-10" />
         <div className="container px-4 md:px-6 relative z-10">
-          <div className="grid gap-8 lg:grid-cols-2 lg:gap-16 items-center">
+          <div className="grid gap-12 lg:grid-cols-2 lg:gap-24 items-center">
             <div className="flex flex-col justify-center space-y-6 text-center lg:text-left">
               <div className="space-y-4">
-                <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  🚀 New: Now supporting automated performance-based payouts!
+                <div className="inline-block rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary tracking-wide">
+                  🚀 Unlock Viral Growth
                 </div>
-                <h1 className="text-4xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl/none">
-                  Amplify Your Reach,
-                  <br className="hidden md:inline" />{" "}
-                  <span className="text-primary">Reward Real Impact</span>
+                <h1 className="text-5xl font-extrabold tracking-tighter sm:text-6xl md:text-7xl lg:text-8xl/none">
+                  Connect. Collaborate.
+                  <br />
+                  <span className="text-primary">Create Impact.</span>
                 </h1>
                 <p className="max-w-[700px] text-muted-foreground md:text-xl mx-auto lg:mx-0">
-                  ViraLink connects innovative creators with passionate promoters. Launch powerful campaigns, track
-                  real-time results, and reward promoters based on genuine performance.
+                  ViraLink is the ultimate platform for creators and promoters to build powerful, performance-based marketing campaigns that deliver real results.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link href="/register?type=creator">
-                  <Button size="lg" className="px-8 py-3 text-lg gap-2">
-                    Start as a Creator <ArrowRight className="h-5 w-5" />
+                  <Button size="lg" className="px-8 py-4 text-lg gap-2 shadow-lg hover:shadow-xl transition-shadow">
+                    I'm a Creator <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
                 <Link href="/register?type=promoter">
-                  <Button size="lg" variant="outline" className="px-8 py-3 text-lg">
-                    Join as a Promoter
+                  <Button size="lg" variant="outline" className="px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-shadow">
+                    I'm a Promoter
                   </Button>
                 </Link>
               </div>
             </div>
             <div className="relative h-[350px] md:h-[450px] lg:h-[550px] flex items-center justify-center">
-              <div className="absolute w-full h-full bg-primary/10 rounded-3xl transform -rotate-6" />
+              <div className="absolute w-full h-full bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-400 rounded-3xl transform -rotate-6 opacity-30 blur-3xl" />
               <Image
-                src="/placeholder.svg?height=500&width=500"
-                alt="ViraLink Dashboard Preview"
-                width={500}
-                height={500}
-                className="rounded-xl object-cover shadow-2xl transform hover:scale-105 transition-transform duration-300 ease-in-out z-10"
+                src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop"
+                alt="Collaboration"
+                width={600}
+                height={600}
+                className="rounded-xl object-cover shadow-2xl transform hover:scale-105 transition-transform duration-300 ease-in-out z-10 border-4 border-background/20"
               />
             </div>
           </div>
@@ -81,60 +84,48 @@ export default function HomePage() {
           <div className="relative">
             <div className="absolute top-1/2 left-0 w-full h-px bg-border -translate-y-1/2" />
             <div className="relative grid max-w-6xl mx-auto grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <Card className="bg-background/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                      1
-                    </span>
-                    For Creators
-                  </CardTitle>
+              <Card className="bg-background/80 backdrop-blur-sm hover:shadow-lg transition-shadow border-t-4 border-primary/20">
+                <CardHeader className="items-center text-center">
+                  <div className="p-3 rounded-full bg-primary/10 mb-2">
+                    <Rocket className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle>1. Launch</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <h3 className="font-semibold">Launch Campaign</h3>
-                  <p className="text-sm text-muted-foreground">Define goals, upload content, and set your terms.</p>
+                <CardContent className="text-center">
+                  <p className="text-sm text-muted-foreground">Creators define goals, upload content, and set performance-based rewards.</p>
                 </CardContent>
               </Card>
-              <Card className="bg-background/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                      2
-                    </span>
-                    For Promoters
-                  </CardTitle>
+              <Card className="bg-background/80 backdrop-blur-sm hover:shadow-lg transition-shadow border-t-4 border-primary/20">
+                <CardHeader className="items-center text-center">
+                  <div className="p-3 rounded-full bg-primary/10 mb-2">
+                    <Search className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle>2. Discover</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <h3 className="font-semibold">Discover & Join</h3>
-                  <p className="text-sm text-muted-foreground">Find campaigns that match your audience and apply.</p>
+                <CardContent className="text-center">
+                  <p className="text-sm text-muted-foreground">Promoters find campaigns that resonate with their audience and apply to join.</p>
                 </CardContent>
               </Card>
-              <Card className="bg-background/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                      3
-                    </span>
-                    Collaboration
-                  </CardTitle>
+              <Card className="bg-background/80 backdrop-blur-sm hover:shadow-lg transition-shadow border-t-4 border-primary/20">
+                <CardHeader className="items-center text-center">
+                  <div className="p-3 rounded-full bg-primary/10 mb-2">
+                    <Share2 className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle>3. Amplify</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <h3 className="font-semibold">Amplify Content</h3>
-                  <p className="text-sm text-muted-foreground">Promoters share content, driving engagement.</p>
+                <CardContent className="text-center">
+                  <p className="text-sm text-muted-foreground">Promoters share unique tracking links and drive engagement to the campaign.</p>
                 </CardContent>
               </Card>
-              <Card className="bg-background/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                      4
-                    </span>
-                    Rewards
-                  </CardTitle>
+              <Card className="bg-background/80 backdrop-blur-sm hover:shadow-lg transition-shadow border-t-4 border-primary/20">
+                <CardHeader className="items-center text-center">
+                  <div className="p-3 rounded-full bg-primary/10 mb-2">
+                    <Award className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle>4. Reward</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <h3 className="font-semibold">Track & Earn</h3>
-                  <p className="text-sm text-muted-foreground">Get rewarded based on measurable performance.</p>
+                <CardContent className="text-center">
+                  <p className="text-sm text-muted-foreground">Real-time analytics track performance, and rewards are paid out automatically.</p>
                 </CardContent>
               </Card>
             </div>
@@ -155,42 +146,42 @@ export default function HomePage() {
             </p>
           </div>
           <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="flex flex-col">
+            <Card className="flex flex-col bg-gradient-to-br from-primary/5 to-transparent hover:from-primary/10 transition-all duration-300">
               <CardHeader>
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                   <BarChart3 className="h-6 w-6" />
                 </div>
-                <CardTitle>Performance Tracking</CardTitle>
+                <CardTitle>Real-Time Analytics</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Track clicks, conversions, and engagement with our real-time analytics dashboard.
+                  Track clicks, conversions, and engagement with our intuitive, real-time analytics dashboard.
                 </p>
               </CardContent>
             </Card>
-            <Card className="flex flex-col">
+            <Card className="flex flex-col bg-gradient-to-br from-primary/5 to-transparent hover:from-primary/10 transition-all duration-300">
               <CardHeader>
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                   <DollarSign className="h-6 w-6" />
                 </div>
-                <CardTitle>Flexible Payments</CardTitle>
+                <CardTitle>Automated Payouts</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Set up rewards based on clicks, engagement, or conversions with secure, automated payouts.
+                  Reward promoters based on performance with secure, automated payments. No more manual tracking.
                 </p>
               </CardContent>
             </Card>
-            <Card className="flex flex-col">
+            <Card className="flex flex-col bg-gradient-to-br from-primary/5 to-transparent hover:from-primary/10 transition-all duration-300">
               <CardHeader>
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
                   <Users className="h-6 w-6" />
                 </div>
-                <CardTitle>Promoter Discovery</CardTitle>
+                <CardTitle>Curated Network</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Find and approve the perfect promoters for your campaigns from our curated network.
+                  Discover and connect with the perfect promoters for your brand from our vetted and passionate community.
                 </p>
               </CardContent>
             </Card>
@@ -212,7 +203,7 @@ export default function HomePage() {
             <Card>
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" alt="@creatorjane" />
+                  <AvatarImage src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1887&auto=format&fit=crop" alt="@creatorjane" />
                   <AvatarFallback>CJ</AvatarFallback>
                 </Avatar>
                 <div>
@@ -237,7 +228,7 @@ export default function HomePage() {
             <Card>
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" alt="@promotermark" />
+                  <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1780&auto=format&fit=crop" alt="@promotermark" />
                   <AvatarFallback>PM</AvatarFallback>
                 </Avatar>
                 <div>
@@ -262,7 +253,7 @@ export default function HomePage() {
             <Card>
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" alt="@techguru" />
+                  <AvatarImage src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1887&auto=format&fit=crop" alt="@techguru" />
                   <AvatarFallback>TG</AvatarFallback>
                 </Avatar>
                 <div>
@@ -291,19 +282,19 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="w-full py-16 md:py-24 lg:py-32">
         <div className="container px-4 md:px-6">
-          <div className="relative overflow-hidden rounded-2xl bg-primary/90 p-12 shadow-xl">
-            <div className="absolute inset-0 bg-grid-pattern opacity-10" />
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-12 shadow-2xl">
+            <div className="absolute inset-0 bg-grid-pattern opacity-20" />
             <div className="relative z-10 flex flex-col items-center text-center gap-6">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-primary-foreground">
+              <h2 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary-foreground">
                 Ready to Go Viral?
               </h2>
-              <p className="max-w-[600px] text-primary-foreground/80 md:text-xl">
-                Join ViraLink today and start your journey towards explosive content growth.
+              <p className="max-w-[600px] text-primary-foreground/90 md:text-xl">
+                Join thousands of creators and promoters who are already building their success on ViraLink.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/register">
-                  <Button size="lg" variant="secondary" className="px-8 py-3 text-lg gap-2">
-                    Get Started Now <ArrowRight className="h-5 w-5" />
+                  <Button size="lg" variant="secondary" className="px-8 py-4 text-lg gap-2 shadow-lg hover:shadow-xl transition-shadow">
+                    Sign Up for Free <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
               </div>
