@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, BarChart3, DollarSign, Users, MousePointerClick } from "lucide-react" // Added MousePointerClick
+import { ArrowRight, BarChart3, DollarSign, Users, MousePointerClick, TrendingUp, CheckCircle, Clock } from "lucide-react"
 import Link from "next/link"
-import { Progress } from "@/components/ui/progress" // Import Progress component
+import { Progress } from "@/components/ui/progress"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from "recharts"
 
 export default function DashboardPage() {
   const { user, userType, isLoading } = useAuth()
@@ -25,7 +28,10 @@ export default function DashboardPage() {
 
   return (
     <div className="container py-10">
-      <h1 className="text-3xl font-bold mb-8">Welcome, {user.name}!</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Welcome, {user.name}!</h1>
+        <p className="text-lg text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+      </div>
 
       {userType === "creator" ? <CreatorDashboard /> : <PromoterDashboard />}
     </div>
@@ -41,12 +47,29 @@ function CreatorDashboard() {
     totalBudget: 5000000,
     spentBudget: 1250000,
   }
-
   const budgetProgress = Math.round((stats.spentBudget / stats.totalBudget) * 100)
+
+  const chartData = [
+    { name: 'Day 1', clicks: 400 },
+    { name: 'Day 2', clicks: 300 },
+    { name: 'Day 3', clicks: 200 },
+    { name: 'Day 4', clicks: 278 },
+    { name: 'Day 5', clicks: 189 },
+    { name: 'Day 6', clicks: 239 },
+    { name: 'Day 7', clicks: 349 },
+  ];
+
+  const recentActivities = [
+    { text: "New promoter 'Jane Doe' joined 'Summer Product Launch'", time: "5 minutes ago" },
+    { text: "'New YouTube Channel Promotion' reached 500 clicks", time: "1 hour ago" },
+    { text: "You received a payment of Rp 1,500,000", time: "3 hours ago" },
+    { text: "'TikTok Challenge Campaign' is now active", time: "1 day ago" },
+  ]
 
   return (
     <div className="space-y-12">
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        {/* Stat Cards */}
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
@@ -87,6 +110,46 @@ function CreatorDashboard() {
             <p className="text-xs text-muted-foreground">of Rp {stats.totalBudget.toLocaleString()}</p>
             <Progress value={budgetProgress} className="mt-2 h-2" />
             <p className="text-xs text-muted-foreground mt-1">{budgetProgress}% of total budget</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-3">
+        <Card className="md:col-span-2 hover:shadow-lg transition-shadow duration-200 rounded-xl">
+          <CardHeader>
+            <CardTitle>Campaign Performance</CardTitle>
+            <CardDescription>Clicks over the last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="clicks" stroke="#8884d8" activeDot={{ r: 8 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Latest updates from your campaigns</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivities.map((activity, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary mt-1" />
+                  <div>
+                    <p className="text-sm font-medium">{activity.text}</p>
+                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -215,9 +278,16 @@ function PromoterDashboard() {
     pendingPayment: 450000,
   }
 
+  const paymentHistory = [
+    { id: "PAY-001", date: "2024-05-28", amount: 500000, status: "Paid" },
+    { id: "PAY-002", date: "2024-05-15", amount: 300000, status: "Paid" },
+    { id: "PAY-003", date: "2024-05-01", amount: 450000, status: "Paid" },
+  ]
+
   return (
     <div className="space-y-12">
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        {/* Stat Cards */}
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
@@ -337,6 +407,40 @@ function PromoterDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+        <CardHeader>
+          <CardTitle>Payment History</CardTitle>
+          <CardDescription>Your recent earnings and payouts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Invoice ID</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paymentHistory.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell className="font-medium">{payment.id}</TableCell>
+                  <TableCell>{payment.date}</TableCell>
+                  <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={payment.status === "Paid" ? "default" : "secondary"}>
+                      {payment.status === "Paid" ? <CheckCircle className="mr-1 h-3 w-3" /> : <Clock className="mr-1 h-3 w-3" />}
+                      {payment.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-center mt-12">
         <Link href="/discover">

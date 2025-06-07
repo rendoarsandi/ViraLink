@@ -1,5 +1,8 @@
 import type React from "react"
 import { Inter } from "next/font/google"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/react"
+
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
@@ -11,7 +14,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "ViraLink - Connect & Amplify",
   description: "Platform to connect creators and promoters for viral content distribution.",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -29,6 +32,8 @@ export default function RootLayout({
             <Toaster />
           </ThemeProvider>
         </Providers>
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   )
