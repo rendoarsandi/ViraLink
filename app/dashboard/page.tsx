@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BarChart3, DollarSign, Users, MousePointerClick, TrendingUp, CheckCircle, Clock } from "lucide-react"
@@ -11,6 +12,76 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from "recharts"
+
+// Type definitions
+interface Profile {
+  id: string
+  name: string
+}
+
+interface PromoterCampaignForCreator {
+  id: string
+  clicks: number
+  earnings: number
+  promoter_id: string
+  profiles: Profile
+}
+
+interface CampaignForCreator {
+  id: string
+  name: string
+  status: "active" | "inactive" | "completed"
+  total_budget_idr: number
+  promoter_campaigns: PromoterCampaignForCreator[]
+}
+
+interface TopPromoter {
+  id: string
+  name: string
+  totalClicks: number
+}
+
+interface Activity {
+  text: string
+  time: string
+}
+
+interface ChartData {
+  name: string
+  clicks: number
+}
+
+interface CampaignForPromoter {
+    id: string;
+    name: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    status: "active" | "inactive" | "completed";
+    target_audience: string;
+    cpc_idr: number;
+}
+
+interface PromoterCampaign {
+    id: string;
+    clicks: number;
+    earnings: number;
+    campaigns: CampaignForPromoter[];
+}
+
+interface RecommendedCampaign {
+  id: string;
+  name: string;
+  cpc_idr: number;
+}
+
+interface Payment {
+  id: string;
+  date: string;
+  amount: number;
+  status: "Paid" | "Pending";
+}
+
 
 export default function DashboardPage() {
   const { user, userType, isLoading } = useAuth()
@@ -39,37 +110,109 @@ export default function DashboardPage() {
 }
 
 function CreatorDashboard() {
-  // Mock data for creator dashboard
-  const stats = {
-    activeCampaigns: 3,
-    totalPromoters: 24,
-    totalClicks: 1872,
-    totalBudget: 5000000,
-    spentBudget: 1250000,
+  const { user } = useAuth()
+  const [stats, setStats] = useState({
+    activeCampaigns: 0,
+    totalPromoters: 0,
+    totalClicks: 0,
+    totalBudget: 0,
+    spentBudget: 0,
+  })
+  const [recentCampaigns, setRecentCampaigns] = useState<CampaignForCreator[]>([])
+  const [topPromoters, setTopPromoters] = useState<TopPromoter[]>([])
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([])
+  const [chartData, setChartData] = useState<ChartData[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (!user) return
+
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        // Fetch campaigns created by the user
+        const { data: campaigns, error: campaignsError } = await supabase
+          .from("campaigns")
+          .select(
+            `
+            *,
+            promoter_campaigns (
+              id,
+              clicks,
+              earnings,
+              promoter_id,
+              profiles (
+                id,
+                name
+              )
+            )
+          `
+          )
+          .eq("creator_id", user.id)
+
+        if (campaignsError) throw campaignsError
+        if (!campaigns) return
+
+        // Calculate stats
+        const activeCampaigns = campaigns.filter(c => c.status === "active")
+        const allPromoterCampaigns = campaigns.flatMap(c => c.promoter_campaigns)
+        const uniquePromoterIds = new Set(allPromoterCampaigns.map(pc => pc.promoter_id))
+        const totalClicks = allPromoterCampaigns.reduce((sum, pc) => sum + pc.clicks, 0)
+        const totalBudget = campaigns.reduce((sum, c) => sum + c.total_budget_idr, 0)
+        const spentBudget = allPromoterCampaigns.reduce((sum, pc) => sum + pc.earnings, 0)
+
+        setStats({
+          activeCampaigns: activeCampaigns.length,
+          totalPromoters: uniquePromoterIds.size,
+          totalClicks,
+          totalBudget,
+          spentBudget,
+        })
+
+        // Prepare data for components
+        setRecentCampaigns(campaigns.slice(0, 3))
+
+        const promoterPerformance = allPromoterCampaigns.reduce((acc, pc) => {
+          if (!pc.profiles) return acc; // Skip if profile is missing
+          acc[pc.promoter_id] = acc[pc.promoter_id] || { ...pc.profiles, totalClicks: 0 }
+          acc[pc.promoter_id].totalClicks += pc.clicks
+          return acc
+        }, {})
+
+        const sortedPromoters = Object.values(promoterPerformance).sort((a, b) => (b as any).totalClicks - (a as any).totalClicks)
+        setTopPromoters(sortedPromoters.slice(0, 3) as TopPromoter[])
+
+        // Mock recent activities and chart data for now
+        setRecentActivities([
+          { text: "New promoter 'Jane Doe' joined 'Summer Product Launch'", time: "5 minutes ago" },
+          { text: "'New YouTube Channel Promotion' reached 500 clicks", time: "1 hour ago" },
+        ])
+        setChartData([
+          { name: 'Day 1', clicks: 400 }, { name: 'Day 2', clicks: 300 }, { name: 'Day 3', clicks: 200 },
+          { name: 'Day 4', clicks: 278 }, { name: 'Day 5', clicks: 189 }, { name: 'Day 6', clicks: 239 },
+          { name: 'Day 7', clicks: 349 },
+        ])
+
+      } catch (error) {
+        console.error("Error fetching creator dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [user, supabase])
+  
+  const budgetProgress = stats.totalBudget > 0 ? Math.round((stats.spentBudget / stats.totalBudget) * 100) : 0;
+
+  if (loading) {
+    return <div className="container py-10 text-center">Loading dashboard data...</div>
   }
-  const budgetProgress = Math.round((stats.spentBudget / stats.totalBudget) * 100)
-
-  const chartData = [
-    { name: 'Day 1', clicks: 400 },
-    { name: 'Day 2', clicks: 300 },
-    { name: 'Day 3', clicks: 200 },
-    { name: 'Day 4', clicks: 278 },
-    { name: 'Day 5', clicks: 189 },
-    { name: 'Day 6', clicks: 239 },
-    { name: 'Day 7', clicks: 349 },
-  ];
-
-  const recentActivities = [
-    { text: "New promoter 'Jane Doe' joined 'Summer Product Launch'", time: "5 minutes ago" },
-    { text: "'New YouTube Channel Promotion' reached 500 clicks", time: "1 hour ago" },
-    { text: "You received a payment of Rp 1,500,000", time: "3 hours ago" },
-    { text: "'TikTok Challenge Campaign' is now active", time: "1 day ago" },
-  ]
 
   return (
     <div className="space-y-12">
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {/* Stat Cards */}
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
@@ -118,7 +261,7 @@ function CreatorDashboard() {
         <Card className="md:col-span-2 hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader>
             <CardTitle>Campaign Performance</CardTitle>
-            <CardDescription>Clicks over the last 7 days</CardDescription>
+            <CardDescription>Clicks over the last 7 days (mock data)</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -136,9 +279,10 @@ function CreatorDashboard() {
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates from your campaigns</CardDescription>
+            <CardDescription>Latest updates from your campaigns (mock data)</CardDescription>
           </CardHeader>
           <CardContent>
+            {recentActivities.length > 0 ? (
             <div className="space-y-4">
               {recentActivities.map((activity, index) => (
                 <div key={index} className="flex items-start gap-3">
@@ -150,6 +294,9 @@ function CreatorDashboard() {
                 </div>
               ))}
             </div>
+            ) : (
+              <p className="text-muted-foreground">No recent activity.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -161,41 +308,25 @@ function CreatorDashboard() {
             <CardDescription>Your most recent active campaigns</CardDescription>
           </CardHeader>
           <CardContent>
+            {recentCampaigns.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
+              {recentCampaigns.map(campaign => (
+              <div key={campaign.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
                 <div>
-                  <p className="font-medium">Summer Product Launch</p>
-                  <p className="text-sm text-muted-foreground">12 promoters active</p>
+                  <p className="font-medium">{campaign.name}</p>
+                  <p className="text-sm text-muted-foreground">{campaign.promoter_campaigns.length} promoters active</p>
                 </div>
-                <Link href="/campaigns/1">
+                <Link href={`/campaigns/${campaign.id}`}>
                   <Button variant="ghost" size="sm">
                     View <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </Link>
               </div>
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
-                <div>
-                  <p className="font-medium">New YouTube Channel Promotion</p>
-                  <p className="text-sm text-muted-foreground">8 promoters active</p>
-                </div>
-                <Link href="/campaigns/2">
-                  <Button variant="ghost" size="sm">
-                    View <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">TikTok Challenge Campaign</p>
-                  <p className="text-sm text-muted-foreground">4 promoters active</p>
-                </div>
-                <Link href="/campaigns/3">
-                  <Button variant="ghost" size="sm">
-                    View <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
+              ))}
             </div>
+            ) : (
+              <p className="text-muted-foreground">You haven't created any campaigns yet.</p>
+            )}
           </CardContent>
         </Card>
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
@@ -204,56 +335,30 @@ function CreatorDashboard() {
             <CardDescription>Promoters with the highest engagement</CardDescription>
           </CardHeader>
           <CardContent>
+            {topPromoters.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
+              {topPromoters.map(promoter => (
+              <div key={promoter.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                    JD
+                    {promoter.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-medium">John Doe</p>
-                    <p className="text-sm text-muted-foreground">542 clicks</p>
+                    <p className="font-medium">{promoter.name}</p>
+                    <p className="text-sm text-muted-foreground">{promoter.totalClicks.toLocaleString()} clicks</p>
                   </div>
                 </div>
-                <Link href="/promoters/1">
+                <Link href={`/promoters/${promoter.id}`}>
                   <Button variant="ghost" size="sm">
                     Profile
                   </Button>
                 </Link>
               </div>
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                    AS
-                  </div>
-                  <div>
-                    <p className="font-medium">Alice Smith</p>
-                    <p className="text-sm text-muted-foreground">423 clicks</p>
-                  </div>
-                </div>
-                <Link href="/promoters/2">
-                  <Button variant="ghost" size="sm">
-                    Profile
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                    RJ
-                  </div>
-                  <div>
-                    <p className="font-medium">Robert Johnson</p>
-                    <p className="text-sm text-muted-foreground">387 clicks</p>
-                  </div>
-                </div>
-                <Link href="/promoters/3">
-                  <Button variant="ghost" size="sm">
-                    Profile
-                  </Button>
-                </Link>
-              </div>
+              ))}
             </div>
+            ) : (
+              <p className="text-muted-foreground">No promoters have joined your campaigns yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -270,65 +375,148 @@ function CreatorDashboard() {
 }
 
 function PromoterDashboard() {
-  // Mock data for promoter dashboard
-  const stats = {
-    activeCampaigns: 2,
-    totalClicks: 342,
-    totalEarnings: 1250000,
-    pendingPayment: 450000,
-  }
+  const { user } = useAuth()
+  const [stats, setStats] = useState({
+    activeCampaigns: 0,
+    totalClicks: 0,
+    totalEarnings: 0,
+    pendingPayment: 0,
+  })
+  const [activeCampaigns, setActiveCampaigns] = useState<PromoterCampaign[]>([])
+  const [recommendedCampaigns, setRecommendedCampaigns] = useState<RecommendedCampaign[]>([])
+  const [paymentHistory, setPaymentHistory] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
-  const paymentHistory = [
-    { id: "PAY-001", date: "2024-05-28", amount: 500000, status: "Paid" },
-    { id: "PAY-002", date: "2024-05-15", amount: 300000, status: "Paid" },
-    { id: "PAY-003", date: "2024-05-01", amount: 450000, status: "Paid" },
-  ]
+  useEffect(() => {
+    if (!user) return
+
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        // Fetch promoter-specific data
+        const { data: promoterCampaigns, error: promoterError } = await supabase
+          .from("promoter_campaigns")
+          .select(
+            `
+            id,
+            clicks,
+            earnings,
+            campaigns!inner (
+              id,
+              name,
+              description,
+              start_date,
+              end_date,
+              status,
+              target_audience,
+              cpc_idr
+            )
+          `
+          )
+          .eq("promoter_id", user.id)
+
+        if (promoterError) throw promoterError
+        if (!promoterCampaigns) return
+
+        // Fetch recommended campaigns (simplified: campaigns not yet joined)
+        const joinedCampaignIds = promoterCampaigns.map(pc => pc.campaigns[0]?.id).filter(Boolean)
+        const query = supabase
+          .from("campaigns")
+          .select("id, name, cpc_idr")
+          .eq("status", "active")
+          .limit(3)
+        
+        if (joinedCampaignIds.length > 0) {
+            query.not("id", "in", `(${joinedCampaignIds.join(",")})`)
+        }
+
+        const { data: allCampaigns, error: campaignsError } = await query
+
+        if (campaignsError) throw campaignsError
+
+        // Mock payment history for now
+        const mockPayments: Payment[] = [
+          { id: "PAY-001", date: "2024-05-28", amount: 500000, status: "Paid" },
+          { id: "PAY-002", date: "2024-05-15", amount: 300000, status: "Paid" },
+          { id: "PAY-003", date: "2024-05-01", amount: 450000, status: "Paid" },
+        ]
+
+        // Calculate stats
+        const active = promoterCampaigns.filter(pc => pc.campaigns[0]?.status === "active")
+        const totalClicks = active.reduce((sum, pc) => sum + pc.clicks, 0)
+        const totalEarnings = active.reduce((sum, pc) => sum + pc.earnings, 0)
+        // Pending payment logic would be more complex, this is a placeholder
+        const pendingPayment = totalEarnings * 0.2
+
+        setStats({
+          activeCampaigns: active.length,
+          totalClicks,
+          totalEarnings,
+          pendingPayment,
+        })
+        setActiveCampaigns(active)
+        setRecommendedCampaigns(allCampaigns || [])
+        setPaymentHistory(mockPayments)
+      } catch (error) {
+        console.error("Error fetching promoter dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [user, supabase])
+
+  if (loading) {
+    return <div className="container py-10 text-center">Loading dashboard data...</div>
+  }
 
   return (
     <div className="space-y-12">
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {/* Stat Cards */}
-        <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
-            <BarChart3 className="h-5 w-5 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.activeCampaigns}</div>
-            <p className="text-xs text-muted-foreground mt-1">Currently promoting</p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-            <MousePointerClick className="h-5 w-5 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.totalClicks.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across all campaigns</p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            <DollarSign className="h-5 w-5 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">Rp {stats.totalEarnings.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Lifetime earnings</p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
-            <DollarSign className="h-5 w-5 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">Rp {stats.pendingPayment.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting payout</p>
-          </CardContent>
-        </Card>
-      </div>
+       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+         {/* Stat Cards */}
+         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
+             <BarChart3 className="h-5 w-5 text-primary" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-3xl font-bold">{stats.activeCampaigns}</div>
+             <p className="text-xs text-muted-foreground mt-1">Currently promoting</p>
+           </CardContent>
+         </Card>
+         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+             <MousePointerClick className="h-5 w-5 text-primary" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-3xl font-bold">{stats.totalClicks.toLocaleString()}</div>
+             <p className="text-xs text-muted-foreground mt-1">Across all campaigns</p>
+           </CardContent>
+         </Card>
+         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+             <DollarSign className="h-5 w-5 text-primary" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-3xl font-bold">Rp {stats.totalEarnings.toLocaleString()}</div>
+             <p className="text-xs text-muted-foreground mt-1">Lifetime earnings</p>
+           </CardContent>
+         </Card>
+         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
+             <DollarSign className="h-5 w-5 text-primary" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-3xl font-bold">Rp {stats.pendingPayment.toLocaleString()}</div>
+             <p className="text-xs text-muted-foreground mt-1">Awaiting payout</p>
+           </CardContent>
+         </Card>
+       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
@@ -337,30 +525,27 @@ function PromoterDashboard() {
             <CardDescription>Campaigns you're currently promoting</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
-                <div>
-                  <p className="font-medium">Summer Product Launch</p>
-                  <p className="text-sm text-muted-foreground">Rp 3,500 per click • 124 clicks</p>
-                </div>
-                <Link href="/campaigns/1/promote">
-                  <Button variant="ghost" size="sm">
-                    View <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
+            {activeCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {activeCampaigns.map(pc => (
+                  <div key={pc.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
+                    <div>
+                      <p className="font-medium">{pc.campaigns[0]?.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Rp {pc.campaigns[0]?.cpc_idr.toLocaleString()} per click • {pc.clicks.toLocaleString()} clicks
+                      </p>
+                    </div>
+                    <Link href={`/campaigns/${pc.campaigns[0]?.id}/promote`}>
+                      <Button variant="ghost" size="sm">
+                        View <ArrowRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">TikTok Challenge Campaign</p>
-                  <p className="text-sm text-muted-foreground">Rp 5,000 per click • 218 clicks</p>
-                </div>
-                <Link href="/campaigns/3/promote">
-                  <Button variant="ghost" size="sm">
-                    View <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            ) : (
+              <p className="text-muted-foreground">You are not promoting any campaigns yet.</p>
+            )}
           </CardContent>
         </Card>
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
@@ -369,41 +554,25 @@ function PromoterDashboard() {
             <CardDescription>Campaigns that match your profile</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
-                <div>
-                  <p className="font-medium">New YouTube Channel Promotion</p>
-                  <p className="text-sm text-muted-foreground">Rp 4,000 per click</p>
-                </div>
-                <Link href="/campaigns/2">
-                  <Button variant="ghost" size="sm">
-                    Join
-                  </Button>
-                </Link>
+            {recommendedCampaigns.length > 0 ? (
+              <div className="space-y-4">
+                {recommendedCampaigns.map(campaign => (
+                  <div key={campaign.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
+                    <div>
+                      <p className="font-medium">{campaign.name}</p>
+                      <p className="text-sm text-muted-foreground">Rp {campaign.cpc_idr.toLocaleString()} per click</p>
+                    </div>
+                    <Link href={`/campaigns/${campaign.id}`}>
+                      <Button variant="ghost" size="sm">
+                        Join
+                      </Button>
+                    </Link>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-between border-b pb-3 last:border-b-0">
-                <div>
-                  <p className="font-medium">Instagram Story Campaign</p>
-                  <p className="text-sm text-muted-foreground">Rp 6,000 per click</p>
-                </div>
-                <Link href="/campaigns/4">
-                  <Button variant="ghost" size="sm">
-                    Join
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Product Review Campaign</p>
-                  <p className="text-sm text-muted-foreground">Rp 7,500 per click</p>
-                </div>
-                <Link href="/campaigns/5">
-                  <Button variant="ghost" size="sm">
-                    Join
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            ) : (
+              <p className="text-muted-foreground">No new campaign recommendations at the moment.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -411,34 +580,38 @@ function PromoterDashboard() {
       <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
         <CardHeader>
           <CardTitle>Payment History</CardTitle>
-          <CardDescription>Your recent earnings and payouts</CardDescription>
+          <CardDescription>Your recent earnings and payouts (mock data)</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentHistory.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell className="font-medium">{payment.id}</TableCell>
-                  <TableCell>{payment.date}</TableCell>
-                  <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={payment.status === "Paid" ? "default" : "secondary"}>
-                      {payment.status === "Paid" ? <CheckCircle className="mr-1 h-3 w-3" /> : <Clock className="mr-1 h-3 w-3" />}
-                      {payment.status}
-                    </Badge>
-                  </TableCell>
+          {paymentHistory.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paymentHistory.map(payment => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-medium">{payment.id}</TableCell>
+                    <TableCell>{payment.date}</TableCell>
+                    <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={payment.status === "Paid" ? "default" : "secondary"}>
+                        {payment.status === "Paid" ? <CheckCircle className="mr-1 h-3 w-3" /> : <Clock className="mr-1 h-3 w-3" />}
+                        {payment.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-muted-foreground">No payment history available.</p>
+          )}
         </CardContent>
       </Card>
 
