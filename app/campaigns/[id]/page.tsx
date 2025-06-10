@@ -1,246 +1,70 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { DollarSign, LinkIcon, Copy, Edit, Pause, Play, Loader2, Download } from "lucide-react" // Added Download icon
+import { DollarSign, LinkIcon, Copy, Edit, Pause, Play, Loader2, Download } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-interface Campaign {
-  id: string
-  creator_id: string
-  title: string
-  description: string
-  objective: string
-  budget: number
-  reward_model: string
-  reward_rate: number
-  content_link: string
-  instructions: string
-  status: string
-  promoters_count: number
-  clicks_count: number
-  spent_budget: number
-  created_at: string
-}
-
-interface PromoterCampaign {
-  id: string
-  promoter_id: string
-  campaign_id: string
-  tracking_link: string
-  joined_at: string
-  status: string
-  clicks: number
-  earnings: number
-  profiles: {
-    // Joined profile data
-    full_name: string
-    email: string
-    avatar_url: string
-  } | null
-}
-
+// TODO: Re-implement with BetterAuth and Cloudflare Workers
 export default function CreatorCampaignDetailsPage({ params }: { params: { id: string } }) {
-  const { id: campaignId } = params
   const router = useRouter()
-  const { user, userType, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
-  const supabase = createClient()
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [promoterCampaigns, setPromoterCampaigns] = useState<PromoterCampaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  // Placeholder data
+  const campaign = {
+    id: params.id,
+    title: "Awesome New Product Launch",
+    created_at: new Date().toISOString(),
+    objective: "Sales",
+    description: "Promote our latest product to drive sales.",
+    reward_rate: 1500,
+    reward_model: "ppa",
+    budget: 10000000,
+    spent_budget: 2500000,
+    status: "active",
+    content_link: "https://example.com/product-page",
+    instructions: "Focus on the key features and use the official hashtag.",
+  }
+
+  const promoterCampaigns = [
+    {
+      id: "promo1",
+      profiles: { full_name: "John Doe", email: "john@example.com", avatar_url: "/placeholder-user.jpg" },
+      tracking_link: "https://trk.example.com/promo1",
+      joined_at: new Date().toISOString(),
+      clicks: 1520,
+      earnings: 22800,
+      status: "active",
+    },
+    {
+      id: "promo2",
+      profiles: { full_name: "Jane Smith", email: "jane@example.com", avatar_url: "/placeholder-user.jpg" },
+      tracking_link: "https://trk.example.com/promo2",
+      joined_at: new Date().toISOString(),
+      clicks: 890,
+      earnings: 13350,
+      status: "active",
+    },
+  ]
 
   const getRewardModelLabel = (model: string) => {
-    switch (model) {
-      case "ppc":
-        return "Per Click"
-      case "ppa":
-        return "Per Acquisition"
-      case "ppe":
-        return "Per Engagement"
-      default:
-        return model
-    }
-  }
-
-  // Function to check if a URL is likely a Supabase Storage public URL
-  const isSupabaseStorageUrl = (url: string) => {
-    return (
-      url.includes(process.env.NEXT_PUBLIC_SUPABASE_URL || "") &&
-      url.includes("/storage/v1/object/public/campaign-content/")
-    )
-  }
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-      return
-    }
-    if (!authLoading && userType !== "creator") {
-      router.push("/dashboard") // Only creators can view their campaign details
-      return
-    }
-    if (user && userType === "creator") {
-      fetchCampaignDetails()
-      fetchPromoterPerformance()
-
-      // Set up Realtime listener for campaign updates
-      const campaignChannel = supabase
-        .channel(`public:campaigns:id=eq.${campaignId}`)
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "campaigns", filter: `id=eq.${campaignId}` },
-          (payload) => {
-            console.log("Realtime campaign update:", payload)
-            setCampaign(payload.new as Campaign)
-          },
-        )
-        .subscribe()
-
-      // Set up Realtime listener for promoter_campaigns updates related to this campaign
-      const promoterCampaignsChannel = supabase
-        .channel(`public:promoter_campaigns:campaign_id=eq.${campaignId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "promoter_campaigns", filter: `campaign_id=eq.${campaignId}` },
-          (payload) => {
-            console.log("Realtime promoter_campaigns update:", payload)
-            fetchPromoterPerformance() // Re-fetch all promoter performance for simplicity
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(campaignChannel)
-        supabase.removeChannel(promoterCampaignsChannel)
-      }
-    }
-  }, [user, userType, authLoading, router, campaignId, supabase])
-
-  const fetchCampaignDetails = async () => {
-    setIsLoading(true)
-    try {
-      const { data: campaignData, error: campaignError } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("id", campaignId)
-        .eq("creator_id", user?.id) // Ensure only creator can fetch their own campaign
-        .single()
-
-      if (campaignError) {
-        if (campaignError.code === "PGRST116") {
-          // No rows found
-          toast({
-            title: "Campaign Not Found",
-            description: "The campaign you are looking for does not exist or you do not have access.",
-            variant: "destructive",
-          })
-          router.push("/campaigns") // Redirect to campaigns list
-        } else {
-          throw campaignError
-        }
-      }
-      setCampaign(campaignData)
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Could not load campaign details.",
-        variant: "destructive",
-      })
-      setCampaign(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const fetchPromoterPerformance = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("promoter_campaigns")
-        .select(`
-          id,
-          promoter_id,
-          campaign_id,
-          tracking_link,
-          joined_at,
-          status,
-          clicks,
-          earnings,
-          profiles (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq("campaign_id", campaignId)
-        .order("joined_at", { ascending: false })
-
-      if (error) throw error
-      setPromoterCampaigns(data as PromoterCampaign[])
-    } catch (error: any) {
-      console.error("Error fetching promoter performance:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Could not load promoter performance.",
-        variant: "destructive",
-      })
-      setPromoterCampaigns([])
-    }
+    return model === "ppa" ? "Per Acquisition" : "Per Click"
   }
 
   const handleCopyLink = (link: string) => {
     navigator.clipboard.writeText(link)
+    toast({ title: "Copied!", description: "Link copied to clipboard." })
+  }
+
+  const handleToggleCampaignStatus = () => {
     toast({
-      title: "Copied!",
-      description: "Link copied to clipboard.",
+      title: "Feature not available",
+      description: "This feature is being migrated. Please try again later.",
+      variant: "destructive",
     })
-  }
-
-  const handleToggleCampaignStatus = async () => {
-    if (!campaign) return
-
-    setIsUpdatingStatus(true)
-    const newStatus = campaign.status === "active" ? "paused" : "active"
-    try {
-      const { error } = await supabase
-        .from("campaigns")
-        .update({ status: newStatus })
-        .eq("id", campaign.id)
-        .eq("creator_id", user?.id) // Ensure only creator can update
-
-      if (error) throw error
-
-      toast({
-        title: "Campaign Status Updated",
-        description: `Campaign is now ${newStatus}.`,
-      })
-      // Realtime listener will update the state, no need to manually setCampaign
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update campaign status.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdatingStatus(false)
-    }
-  }
-
-  if (authLoading || isLoading || !campaign) {
-    return (
-      <div className="container py-10 flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading campaign details...</span>
-      </div>
-    )
   }
 
   return (
@@ -248,25 +72,11 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{campaign.title}</h1>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/campaigns/${campaign.id}/edit`)}
-            disabled={isUpdatingStatus}
-          >
+          <Button variant="outline" onClick={() => router.push(`/campaigns/${campaign.id}/edit`)}>
             <Edit className="h-4 w-4 mr-2" /> Edit Campaign
           </Button>
-          <Button
-            variant={campaign.status === "active" ? "destructive" : "default"}
-            onClick={handleToggleCampaignStatus}
-            disabled={isUpdatingStatus}
-          >
-            {isUpdatingStatus ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : campaign.status === "active" ? (
-              <Pause className="h-4 w-4 mr-2" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
+          <Button variant={campaign.status === "active" ? "destructive" : "default"} onClick={handleToggleCampaignStatus}>
+            {campaign.status === "active" ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
             {campaign.status === "active" ? "Pause Campaign" : "Activate Campaign"}
           </Button>
         </div>
@@ -315,31 +125,15 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
                 </Badge>
               </div>
               <div className="flex items-center gap-2 text-sm mt-1">
-                {isSupabaseStorageUrl(campaign.content_link) ? (
-                  <>
-                    <Download className="h-4 w-4" />
-                    <a
-                      href={campaign.content_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline break-all"
-                    >
-                      Download Content
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="h-4 w-4" />
-                    <a
-                      href={campaign.content_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline break-all"
-                    >
-                      View Content
-                    </a>
-                  </>
-                )}
+                <LinkIcon className="h-4 w-4" />
+                <a
+                  href={campaign.content_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline break-all"
+                >
+                  View Content
+                </a>
                 <Button variant="ghost" size="icon" onClick={() => handleCopyLink(campaign.content_link)}>
                   <Copy className="h-4 w-4" />
                   <span className="sr-only">Copy content link</span>

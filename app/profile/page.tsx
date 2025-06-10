@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge"
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,58 +12,27 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 
+// TODO: Re-implement with BetterAuth
 export default function ProfilePage() {
-  const { user, userType, isLoading: authLoading, logout } = useAuth()
   const router = useRouter()
-  const supabase = createClient()
   const { toast } = useToast()
 
-  const [fullName, setFullName] = useState("")
-  const [avatarUrl, setAvatarUrl] = useState("")
+  // Placeholder data
+  const [fullName, setFullName] = useState("Demo User")
+  const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg")
+  const [userEmail, setUserEmail] = useState("demo@example.com")
+  const [userType, setUserType] = useState("creator")
   const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-    } else if (user) {
-      setFullName(user.name)
-      setAvatarUrl(user.image)
-    }
-  }, [user, authLoading, router])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ full_name: fullName, avatar_url: avatarUrl })
-        .eq("id", user?.id)
-
-      if (error) throw error
-
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      })
-
-      // Re-fetch user data to update context (optional, or implement a direct update in context)
-      // For simplicity, we'll just rely on the next page load or manual refresh for context update
-      // In a real app, you might want to update the user object in auth-context directly
-    } catch (error: any) {
-      toast({
-        title: "Error updating profile",
-        description: error.message || "There was a problem updating your profile.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  if (authLoading || !user) {
-    return <div className="container py-10">Loading profile...</div>
+    toast({
+      title: "Feature not available",
+      description: "Profile update functionality is being migrated. Please try again later.",
+      variant: "destructive",
+    })
+    setIsSaving(false)
   }
 
   return (
@@ -86,7 +53,7 @@ export default function ProfilePage() {
               </Avatar>
               <div className="space-y-1">
                 <h2 className="text-xl font-semibold">{fullName}</h2>
-                <p className="text-muted-foreground">{user.email}</p>
+                <p className="text-muted-foreground">{userEmail}</p>
                 <Badge variant="secondary" className="capitalize">
                   {userType}
                 </Badge>
@@ -110,7 +77,7 @@ export default function ProfilePage() {
               <Input
                 id="email"
                 type="email"
-                value={user.email}
+                value={userEmail}
                 disabled // Email is usually not editable directly here
               />
               <p className="text-sm text-muted-foreground">Email address cannot be changed from this page.</p>

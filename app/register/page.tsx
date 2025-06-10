@@ -11,14 +11,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "@/lib/auth-context"
 import { Chrome } from "lucide-react"
 
+// TODO: Re-implement with BetterAuth
 export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { register, loginWithGoogle } = useAuth()
 
   const defaultType = searchParams.get("type") as "creator" | "promoter" | null
 
@@ -29,57 +28,15 @@ export default function RegisterPage() {
   const [userType, setUserType] = useState<"creator" | "promoter">(defaultType || "creator")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsLoading(true)
-
-    try {
-      await register(name, email, password, userType)
-      toast({
-        title: "Registration successful",
-        description: "Your account has been created.",
-      })
-
-      // Redirect based on user type
-      if (userType === "creator") {
-        router.push("/dashboard")
-      } else {
-        router.push("/discover")
-      }
-    } catch (error: any) {
-      toast({
-        title: "Registration failed",
-        description: error.message || "There was a problem creating your account.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleGoogleRegister = async () => {
-    setIsLoading(true)
-    try {
-      await loginWithGoogle(userType) // Pass the selected user type
-    } catch (error) {
-      toast({
-        title: "Google registration failed",
-        description: "There was a problem signing in with Google.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    toast({
+      title: "Feature not available",
+      description: "Registration functionality is being migrated. Please try again later.",
+      variant: "destructive",
+    })
+    setIsLoading(false)
   }
 
   return (
@@ -89,7 +46,7 @@ export default function RegisterPage() {
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>Join CreatorBoost to start connecting with creators and promoters</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleRegister}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
@@ -164,7 +121,7 @@ export default function RegisterPage() {
                 <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleGoogleRegister} disabled={isLoading}>
+            <Button variant="outline" className="w-full" onClick={handleRegister} disabled={isLoading}>
               <Chrome className="mr-2 h-4 w-4" /> Sign up with Google
             </Button>
             <div className="text-center text-sm text-muted-foreground">

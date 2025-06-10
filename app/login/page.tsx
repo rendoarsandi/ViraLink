@@ -11,62 +11,27 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "@/lib/auth-context"
 import { Chrome } from "lucide-react"
 
+// TODO: Re-implement with BetterAuth
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { loginWithGoogle, mockLogin } = useAuth() // Pastikan mockLogin diimpor
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [userType, setUserType] = useState<"creator" | "promoter">("creator")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleEmailPasswordLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     toast({
-      title: "Email/Password Login Not Implemented",
-      description: "Please use 'Sign in with Google' or 'Mock Accounts' for this demo.",
+      title: "Feature not available",
+      description: "Login functionality is being migrated. Please try again later.",
       variant: "destructive",
     })
     setIsLoading(false)
-  }
-
-  const handleGoogleLogin = async () => {
-    setIsLoading(true)
-    try {
-      await loginWithGoogle(userType) // Pass the selected user type
-    } catch (error) {
-      toast({
-        title: "Google login failed",
-        description: "There was a problem signing in with Google.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleMockLogin = async (type: "creator" | "promoter") => {
-    setIsLoading(true)
-    try {
-      await mockLogin(type)
-      toast({
-        title: "Mock Login Successful",
-        description: `Logged in as mock ${type}.`,
-      })
-    } catch (error) {
-      toast({
-        title: "Mock login failed",
-        description: "There was a problem with mock login.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   return (
@@ -76,7 +41,7 @@ export default function LoginPage() {
           <CardTitle className="text-2xl">Log in</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
-        <form onSubmit={handleEmailPasswordLogin}>
+        <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -133,7 +98,7 @@ export default function LoginPage() {
                 <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
+            <Button variant="outline" className="w-full" onClick={handleLogin} disabled={isLoading}>
               <Chrome className="mr-2 h-4 w-4" /> Sign in with Google
             </Button>
             <div className="relative w-full">
@@ -148,7 +113,7 @@ export default function LoginPage() {
               <Button
                 variant="secondary"
                 className="flex-1"
-                onClick={() => handleMockLogin("creator")}
+                onClick={handleLogin}
                 disabled={isLoading}
               >
                 Mock Creator
@@ -156,7 +121,7 @@ export default function LoginPage() {
               <Button
                 variant="secondary"
                 className="flex-1"
-                onClick={() => handleMockLogin("promoter")}
+                onClick={handleLogin}
                 disabled={isLoading}
               >
                 Mock Promoter
