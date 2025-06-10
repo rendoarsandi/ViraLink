@@ -2,26 +2,28 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters", "queryCompiler"] // Added queryCompiler for Edge
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite" // Changed from postgresql
+  url      = env("DATABASE_URL") // Will point to a local .db file or D1 binding
 }
 
+// NextAuth.js Models (kept as is, String IDs with cuid() are fine for SQLite)
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String? // SQLite doesn't have a direct TEXT type, String is used.
+  access_token      String? // String will map to TEXT in SQLite via Prisma.
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -33,7 +35,7 @@ model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
-  expires      DateTime
+  expires      DateTime // Stored as TEXT/ISO8601 string or Unix Timestamp by Prisma in SQLite
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -45,6 +47,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  profile       Profile?   // One-to-one relation with Profile
 }
 
 model VerificationToken {
@@ -53,4 +56,84 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Domain-specific models translated from SQL scripts
+enum UserType {
+  CREATOR
+  PROMOTER
+}
+
+model Profile {
+  id        String   @id // This will be the User.id
+  name      String?
+  email     String?  @unique // Should this be User.email? Consider data duplication. For now, as per SQL.
+  user_type UserType @default(CREATOR)
+  user      User     @relation(fields: [id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  campaigns         Campaign[]         @relation("CreatorCampaigns")
+  promoterCampaigns PromoterCampaign[] @relation("PromoterProfiles")
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum RewardModel {
+  PPC // Pay Per Click
+  PPA // Pay Per Acquisition
+  PPE // Pay Per Engagement
+}
+
+model Campaign {
+  id           String  @id @default(uuid())
+  creator_id   String // Foreign key to Profile.id (which is User.id)
+  title        String
+  description  String?
+  objective    String? // Consider an Enum if objectives are predefined
+  budget       Int?    // Using Int for SQLite compatibility, can store large numbers.
+  reward_model RewardModel?
+  reward_rate  Int?
+  content_link String?
+  instructions String?
+  status       CampaignStatus @default(ACTIVE)
+
+  promoters_count Int @default(0) // Application logic will need to update this
+  clicks_count    Int @default(0) // Application logic will need to update this
+  spent_budget    Int @default(0) // Application logic will need to update this
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  creator           Profile            @relation("CreatorCampaigns", fields: [creator_id], references: [id], onDelete: Cascade)
+  promoterCampaigns PromoterCampaign[] @relation("CampaignPromotions")
+}
+
+enum PromoterCampaignStatus {
+  JOINED
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model PromoterCampaign {
+  id            String                 @id @default(uuid())
+  promoter_id   String // Foreign key to Profile.id (User.id)
+  campaign_id   String // Foreign key to Campaign.id
+  tracking_link String                 @unique
+  joined_at     DateTime               @default(now())
+  status        PromoterCampaignStatus @default(JOINED)
+  clicks        Int                    @default(0)
+  earnings      Int                    @default(0)
+
+  promoter Profile  @relation("PromoterProfiles", fields: [promoter_id], references: [id], onDelete: Cascade)
+  campaign Campaign @relation("CampaignPromotions", fields: [campaign_id], references: [id], onDelete: Cascade)
+
+  @@unique([promoter_id, campaign_id])
 }

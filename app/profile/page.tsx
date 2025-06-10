@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
+import AuthGuard from "@/components/auth-guard"; // Import AuthGuard
 
 // TODO: Re-implement with BetterAuth
-export default function ProfilePage() {
+function ProfilePageComponent() { // Renamed original component
   const router = useRouter()
   const { toast } = useToast()
 
@@ -104,4 +105,13 @@ export default function ProfilePage() {
       </Card>
     </div>
   )
+}
+
+// Wrap the original component with AuthGuard for export
+export default function ProfilePage() {
+  return (
+    <AuthGuard>
+      <ProfilePageComponent />
+    </AuthGuard>
+  );
 }

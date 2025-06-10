@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/components/ui/use-toast"
 import { Chrome } from "lucide-react"
+import { authClient } from "@/lib/auth-client" // Added import
 
-// TODO: Re-implement with BetterAuth
+// TODO: Re-implement with BetterAuth (In Progress)
 export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -28,38 +29,63 @@ export default function RegisterPage() {
   const [userType, setUserType] = useState<"creator" | "promoter">(defaultType || "creator")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleOidcRegister = async () => {
     setIsLoading(true)
+    try {
+      // For OIDC, signUp is often handled by the provider during the first signIn.
+      // We use signIn.social, and newUserCallbackURL can differentiate experiences.
+      await authClient.signIn.social({
+        provider: "oidc", // Matches the provider key in lib/auth.ts
+        callbackURL: "/dashboard", // Standard redirect on success for existing users
+        newUserCallbackURL: "/dashboard", // Redirect for new users (can be same or different)
+        errorCallbackURL: "/register", // Redirect on error
+      })
+      // setIsLoading(false) might not be reached if redirect occurs.
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    }
+  }
+
+  // Fallback for any direct form submission if needed, or for other buttons.
+  const handleDisabledRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
     toast({
       title: "Feature not available",
-      description: "Registration functionality is being migrated. Please try again later.",
+      description: "This registration method is currently disabled or under construction.",
       variant: "destructive",
-    })
-    setIsLoading(false)
-  }
+    });
+    setIsLoading(false);
+  };
+
 
   return (
     <div className="container flex items-center justify-center py-10 md:py-20">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>Join CreatorBoost to start connecting with creators and promoters</CardDescription>
+          <CardDescription>Register using your OIDC provider to join CreatorBoost.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleRegister}>
+        <form onSubmit={(e) => {e.preventDefault(); handleOidcRegister();}}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Name (for reference, not used by OIDC button)</Label>
               <Input
                 id="name"
                 placeholder="Enter your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                disabled={true}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email (for reference, not used by OIDC button)</Label>
               <Input
                 id="email"
                 type="email"
@@ -67,10 +93,11 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={true}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password (for reference, not used by OIDC button)</Label>
               <Input
                 id="password"
                 type="password"
@@ -78,10 +105,11 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={true}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm Password (for reference, not used by OIDC button)</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -89,14 +117,16 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                disabled={true}
               />
             </div>
             <div className="space-y-2">
-              <Label>I am a:</Label>
+              <Label>I am a: (for reference, not used by OIDC button)</Label>
               <RadioGroup
                 value={userType}
                 onValueChange={(value) => setUserType(value as "creator" | "promoter")}
                 className="flex flex-col space-y-1"
+                disabled={true}
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="creator" id="creator" />
@@ -110,19 +140,19 @@ export default function RegisterPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+            <Button type="button" className="w-full" onClick={handleOidcRegister} disabled={isLoading}>
+              {isLoading ? "Redirecting..." : "Register with OIDC Provider"}
             </Button>
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleRegister} disabled={isLoading}>
-              <Chrome className="mr-2 h-4 w-4" /> Sign up with Google
+            <Button variant="outline" className="w-full" onClick={handleOidcRegister} disabled={isLoading}>
+              <Chrome className="mr-2 h-4 w-4" /> Sign up with OIDC (formerly Google)
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}

@@ -47,12 +47,12 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link href="/register?type=creator">
                   <Button size="lg" className="px-8 py-4 text-lg gap-2 shadow-lg hover:shadow-xl transition-shadow">
-                    I'm a Creator <ArrowRight className="h-5 w-5" />
+                    I&apos;m a Creator <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
                 <Link href="/register?type=promoter">
                   <Button size="lg" variant="outline" className="px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-shadow">
-                    I'm a Promoter
+                    I&apos;m a Promoter
                   </Button>
                 </Link>
               </div>
@@ -213,8 +213,8 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  "ViraLink helped me connect with promoters who genuinely cared about my content. My campaign reach
-                  doubled in a week!"
+                  &quot;ViraLink helped me connect with promoters who genuinely cared about my content. My campaign reach
+                  doubled in a week!&quot;
                 </p>
               </CardContent>
               <CardFooter className="flex gap-1">
@@ -238,8 +238,8 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  "The platform is so easy to use. I found amazing campaigns and earned rewards for my efforts. Highly
-                  recommend it."
+                  &quot;The platform is so easy to use. I found amazing campaigns and earned rewards for my efforts. Highly
+                  recommend it.&quot;
                 </p>
               </CardContent>
               <CardFooter className="flex gap-1">
@@ -263,8 +263,8 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  "As a promoter, I appreciate the transparency and fair reward system. ViraLink is a game-changer for
-                  the creator economy."
+                  &quot;As a promoter, I appreciate the transparency and fair reward system. ViraLink is a game-changer for
+                  the creator economy.&quot;
                 </p>
               </CardContent>
               <CardFooter className="flex gap-1">

@@ -11,8 +11,9 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from "recharts"
+import AuthGuard from "@/components/auth-guard"; // Import AuthGuard
 
-export default function DashboardPage() {
+function DashboardPageComponent() { // Renamed original component
   // Mock user data, assuming this will come from BetterAuth context later
   const [user, setUser] = useState({ name: "Demo User" })
   const [userType, setUserType] = useState("creator") // Can be 'creator' or 'promoter'
@@ -37,6 +38,15 @@ export default function DashboardPage() {
       {userType === "creator" ? <CreatorDashboard /> : <PromoterDashboard />}
     </div>
   )
+}
+
+// Wrap the original component with AuthGuard for export
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardPageComponent />
+    </AuthGuard>
+  );
 }
 
 function CreatorDashboard() {
@@ -291,7 +301,7 @@ function PromoterDashboard() {
         <Card className="hover:shadow-lg transition-shadow duration-200 rounded-xl">
           <CardHeader>
             <CardTitle>Your Active Campaigns</CardTitle>
-            <CardDescription>Campaigns you're currently promoting</CardDescription>
+            <CardDescription>Campaigns you&apos;re currently promoting</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -300,10 +310,10 @@ function PromoterDashboard() {
                   <div>
                     <p className="font-medium">{pc.campaigns[0]?.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Rp {pc.campaigns[0]?.cpc_idr.toLocaleString()} per click • {pc.clicks.toLocaleString()} clicks
+                      Rp {pc.campaigns[0]?.cpc_idr.toLocaleString()} per click • {pc.campaigns[0]?.clicks?.toLocaleString() ?? 0} clicks
                     </p>
                   </div>
-                  <Link href={`/campaigns/${pc.campaigns[0]?.id}/promote`}>
+                  <Link href={`/campaigns/${pc.id}/promote`}> {/* Use pc.id for the campaign link */}
                     <Button variant="ghost" size="sm">
                       View <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
