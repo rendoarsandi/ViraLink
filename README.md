@@ -1,31 +1,79 @@
-rooc
-# Content creator platform
+# ViraLink - Platform Kampanye Kreator Konten
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+[![Dibangun dengan Next.js](https://img.shields.io/badge/Built%20with-Next.js-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![Diterapkan di Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
+[![Didukung oleh Prisma](https://img.shields.io/badge/Powered%20by-Prisma-2D3748?style=for-the-badge&logo=prisma)](https://prisma.io)
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/rendoarsandis-projects/v0-content-creator-platform)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/wgzsznZiR8i)
+ViraLink adalah platform yang dirancang untuk menghubungkan kreator konten dengan promotor. Kreator dapat meluncurkan dan mengelola kampanye promosi, sementara promotor dapat menemukan dan berpartisipasi dalam kampanye yang sesuai dengan minat mereka.
 
-## Overview
+## Fitur Utama
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+-   **Otentikasi Pengguna:** Sistem masuk dan pendaftaran yang aman menggunakan Better Auth.
+-   **Manajemen Kampanye:** Buat, perbarui, dan kelola kampanye promosi dengan mudah.
+-   **Dasbor Promotor:** Lihat kampanye yang diikuti dan kelola partisipasi Anda.
+-   **Penemuan Kampanye:** Jelajahi dan temukan kampanye baru untuk diikuti.
+-   **Profil Pengguna:** Kelola informasi profil Anda.
 
-## Deployment
+## Tumpukan Teknologi
 
-Your project is live at:
+-   **Framework:** [Next.js](https://nextjs.org/)
+-   **Bahasa:** [TypeScript](https://www.typescriptlang.org/)
+-   **Gaya:** [Tailwind CSS](https://tailwindcss.com/)
+-   **Komponen UI:** [Shadcn/ui](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/)
+-   **ORM:** [Prisma](https://www.prisma.io/)
+-   **Otentikasi:** [Better Auth](https://better-auth.dev/)
+-   **Manajemen Form:** [React Hook Form](https://react-hook-form.com/)
+-   **Validasi Skema:** [Zod](https://zod.dev/)
 
-**[https://vercel.com/rendoarsandis-projects/v0-content-creator-platform](https://vercel.com/rendoarsandis-projects/v0-content-creator-platform)**
+## Memulai
 
-## Build your app
+Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah di bawah ini.
 
-Continue building your app on:
+### Prasyarat
 
-**[https://v0.dev/chat/projects/wgzsznZiR8i](https://v0.dev/chat/projects/wgzsznZiR8i)**
+-   Node.js (v18 atau lebih baru)
+-   pnpm
 
-## How It Works
+### Instalasi
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+1.  **Kloning repositori:**
+    ```bash
+    git clone https://github.com/rendoarsandi/ViraLink.git
+    cd ViraLink
+    ```
+
+2.  **Instal dependensi:**
+    ```bash
+    pnpm install
+    ```
+
+3.  **Siapkan variabel lingkungan:**
+    Buat file `.env` di root proyek dengan menyalin dari `.env.example` dan isi nilainya.
+    ```bash
+    cp .env.example .env
+    ```
+
+4.  **Jalankan migrasi basis data:**
+    Pastikan Anda memiliki basis data yang berjalan dan URL koneksi sudah benar di `.env`.
+    ```bash
+    pnpm prisma migrate dev
+    ```
+
+5.  **Jalankan server pengembangan:**
+    ```bash
+    pnpm run dev
+    ```
+    Buka [http://localhost:3000](http://localhost:3000) di browser Anda.
+
+## Variabel Lingkungan
+
+Untuk menjalankan aplikasi ini, Anda perlu menambahkan variabel berikut ke file `.env` Anda:
+
+-   `NEXT_PUBLIC_BETTERAUTH_CLIENT_KEY`: Kunci klien BetterAuth Anda.
+-   `BETTERAUTH_SECRET_KEY`: Kunci rahasia BetterAuth Anda.
+-   `CLOUDFLARE_DB_ID`: ID basis data Cloudflare D1 Anda (jika digunakan).
+-   `DATABASE_URL`: URL koneksi untuk basis data Prisma Anda.
+
+## Penerapan
+
+Branch `cloudflare-deployment` telah disiapkan untuk penerapan ke platform seperti Cloudflare Pages atau Vercel. Pastikan untuk mengonfigurasi variabel lingkungan di penyedia hosting Anda.
