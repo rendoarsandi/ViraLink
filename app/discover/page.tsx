@@ -1,107 +1,55 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, DollarSign, Users, BarChart3, Loader2, CalendarDays } from "lucide-react" // Added CalendarDays
+import { Search, DollarSign, Users, BarChart3, Loader2, CalendarDays } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client" // Import client-side Supabase client
 
-interface Campaign {
-  id: string // Changed to string for UUID
-  creator_id: string
-  title: string
-  description: string
-  objective: string
-  reward_model: string // Changed from 'rewardModel'
-  reward_rate: number // Changed from 'rewardRate'
-  budget: number
-  spent_budget: number // Added to match DB
-  promoters_count: number // Changed from 'promoters'
-  clicks_count: number // Added to match DB
-  status: string
-  created_at: string // Added to match DB
-  content_link: string // Added to match DB
-  instructions: string // Added to match DB
-  // maxPromoters and creator are not directly from DB, but can be derived or added if needed
-  maxPromoters?: number // Keep for mock data consistency if needed
-  creator?: string // Keep for mock data consistency if needed
-  requirements?: string // Keep for mock data consistency if needed
-}
-
+// TODO: Re-implement with BetterAuth and Cloudflare Workers
 export default function DiscoverPage() {
-  const { user, userType, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient() // Initialize client-side Supabase
   const [searchTerm, setSearchTerm] = useState("")
   const [filterObjective, setFilterObjective] = useState("all")
   const [filterRewardModel, setFilterRewardModel] = useState("all")
-  const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([])
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true)
 
-  const fetchDiscoverCampaigns = async () => {
-    setIsLoadingCampaigns(true)
-    try {
-      const response = await fetch("/api/discover-campaigns")
+  // Placeholder data
+  const availableCampaigns = [
+    {
+      id: "1",
+      creator_id: "Creator A",
+      title: "Promote Our New SaaS Platform",
+      description: "Join us in promoting our revolutionary new SaaS platform designed for small businesses.",
+      objective: "website_traffic",
+      reward_model: "ppc",
+      reward_rate: 1500,
+      budget: 20000000,
+      spent_budget: 5000000,
+      promoters_count: 120,
+      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "2",
+      creator_id: "Creator B",
+      title: "Sign-ups for Fitness App",
+      description: "Get rewards for every new user who signs up for our fitness application.",
+      objective: "product_sales", // Representing sign-ups as sales/acquisitions
+      reward_model: "ppa",
+      reward_rate: 25000,
+      budget: 50000000,
+      spent_budget: 12500000,
+      promoters_count: 85,
+      created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  ]
 
-      // Always try to parse JSON, even if response is not ok, to get error message
-      const data = await response.json()
-
-      if (!response.ok) {
-        // If response is not ok, throw an error with the message from the API
-        throw new Error(data.error || "Failed to fetch discoverable campaigns")
-      }
-      setAvailableCampaigns(data)
-    } catch (error: any) {
-      console.error("Error fetching discover campaigns:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Could not load discoverable campaigns.",
-        variant: "destructive",
-      })
-      setAvailableCampaigns([]) // Clear campaigns on error
-    } finally {
-      setIsLoadingCampaigns(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-    } else if (!authLoading && userType !== "promoter") {
-      router.push("/dashboard")
-    } else if (user && userType === "promoter") {
-      fetchDiscoverCampaigns()
-
-      // Set up Realtime listener
-      const channel = supabase
-        .channel("public:campaigns_discover") // Use a different channel name if needed, or filter
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "campaigns" }, // Listen to all changes on campaigns table
-          (payload) => {
-            console.log("Realtime change received for discover campaigns:", payload)
-            // Re-fetch campaigns to ensure filters and RLS are applied correctly
-            // For a more optimized approach, you could manually update state based on payload.new/old
-            fetchDiscoverCampaigns()
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [user, userType, authLoading, router, supabase]) // Add supabase to dependency array
-
-  const filteredCampaigns = availableCampaigns.filter((campaign) => {
+  const filteredCampaigns = availableCampaigns.filter(campaign => {
     const matchesSearch =
       campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       campaign.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -123,16 +71,6 @@ export default function DiscoverPage() {
       default:
         return model
     }
-  }
-
-  if (authLoading || isLoadingCampaigns) {
-    // Check isLoadingCampaigns here
-    return (
-      <div className="container py-10 flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading campaigns...</span>
-      </div>
-    )
   }
 
   // If not loading and no user, redirect will handle it.
@@ -251,7 +189,7 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      {filteredCampaigns.length === 0 && !isLoadingCampaigns && (
+      {filteredCampaigns.length === 0 && (
         <Card className="mt-8 shadow-md">
           <CardContent className="text-center py-10">
             <p className="text-muted-foreground text-lg">No campaigns found matching your criteria.</p>

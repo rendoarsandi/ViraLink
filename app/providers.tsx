@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
-import { AuthProvider, useAuth } from "@/lib/auth-context"
+import { AuthProvider, useAuth } from "@/lib/auth/context" // Updated import path
 import { StatsigClient } from "@statsig/js-client"
 import { StatsigAutoCapturePlugin } from "@statsig/web-analytics"
 import { StatsigSessionReplayPlugin } from "@statsig/session-replay"
@@ -15,23 +15,24 @@ export function useStatsig() {
 }
 
 function StatsigProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user } = useAuth() // Now using the new useAuth hook
   const [statsigClient, setStatsigClient] = useState<StatsigClient | null>(null)
 
   useEffect(() => {
-    if (user?.id) {
-      const client = new StatsigClient(
-        "client-IrtmkOC2MMvnBYRKxw0NiB6EMz6pV1MLoJ7cBomnjHd",
-        { userID: user.id, email: user.email },
-        {
-          plugins: [new StatsigSessionReplayPlugin(), new StatsigAutoCapturePlugin()],
-        }
-      )
+    // Initialize Statsig with user from BetterAuth context
+    const statsigUser = user ? { userID: user.id, email: user.email } : undefined
+    
+    const client = new StatsigClient(
+      "client-IrtmkOC2MMvnBYRKxw0NiB6EMz6pV1MLoJ7cBomnjHd",
+      statsigUser || {},
+      {
+        plugins: [new StatsigSessionReplayPlugin(), new StatsigAutoCapturePlugin()],
+      }
+    )
 
-      client.initializeAsync().then(() => {
-        setStatsigClient(client)
-      })
-    }
+    client.initializeAsync().then(() => {
+      setStatsigClient(client)
+    })
   }, [user])
 
   return <StatsigContext.Provider value={statsigClient}>{children}</StatsigContext.Provider>

@@ -1,50 +1,35 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, Users, LinkIcon, Copy } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
 
-interface Campaign {
-  id: string
-  creator_id: string
-  title: string
-  description: string
-  objective: string
-  budget: number
-  reward_model: string
-  reward_rate: number
-  content_link: string
-  instructions: string
-  status: string
-  promoters_count: number
-  clicks_count: number
-  spent_budget: number
-  created_at: string
-}
-
-interface JoinedCampaign {
-  id: string
-  tracking_link: string
-  status: string
-}
-
+// TODO: Re-implement with BetterAuth and Cloudflare Workers
 export default function JoinCampaignPage({ params }: { params: { id: string } }) {
-  const { id: campaignId } = params
   const router = useRouter()
-  const { user, userType, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
-  const supabase = createClient()
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [joinedCampaign, setJoinedCampaign] = useState<JoinedCampaign | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isJoining, setIsJoining] = useState(false)
+  // Placeholder data
+  const campaign = {
+    title: "Sample Campaign Title",
+    creator_id: "Creator Name",
+    objective: "Brand Awareness",
+    description: "This is a sample campaign description. The goal is to promote our new product.",
+    reward_rate: 1000,
+    reward_model: "ppc",
+    budget: 5000000,
+    spent_budget: 1500000,
+    promoters_count: 42,
+    content_link: "#",
+    instructions: "1. Share the link on your social media.\n2. Use the hashtag #NewProduct.\n3. Get creative!",
+  }
+
+  const joinedCampaign = {
+    tracking_link: "https://trk.example.com/xyz123",
+  }
 
   const getRewardModelLabel = (model: string) => {
     switch (model) {
@@ -59,92 +44,12 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
     }
   }
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-      return
-    }
-    if (!authLoading && userType !== "promoter") {
-      router.push("/dashboard") // Only promoters can join campaigns
-      return
-    }
-    if (user && userType === "promoter") {
-      fetchCampaignDetails()
-    }
-  }, [user, userType, authLoading, router, campaignId])
-
-  const fetchCampaignDetails = async () => {
-    setIsLoading(true)
-    try {
-      // Fetch campaign details (accessible by RLS for active campaigns)
-      const { data: campaignData, error: campaignError } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("id", campaignId)
-        .single()
-
-      if (campaignError) throw campaignError
-      setCampaign(campaignData)
-
-      // Check if the promoter has already joined this campaign
-      const { data: joinedData, error: joinedError } = await supabase
-        .from("promoter_campaigns")
-        .select("id, tracking_link, status")
-        .eq("promoter_id", user?.id)
-        .eq("campaign_id", campaignId)
-        .single()
-
-      if (joinedData) {
-        setJoinedCampaign(joinedData)
-      } else if (joinedError && joinedError.code !== "PGRST116") {
-        // PGRST116 means no rows found
-        throw joinedError
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Could not load campaign details.",
-        variant: "destructive",
-      })
-      setCampaign(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleJoinCampaign = async () => {
-    setIsJoining(true)
-    try {
-      const response = await fetch("/api/join-campaign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ campaignId }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to join campaign.")
-      }
-
-      toast({
-        title: "Success",
-        description: result.message || "You have successfully joined the campaign!",
-      })
-      setJoinedCampaign({ id: result.id, tracking_link: result.trackingLink, status: "joined" }) // Update state to show joined status
-      // Optionally, re-fetch campaign details to update promoter count immediately
-      fetchCampaignDetails()
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "There was a problem joining the campaign.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsJoining(false)
-    }
+    toast({
+      title: "Feature not available",
+      description: "This feature is being migrated. Please try again later.",
+      variant: "destructive",
+    })
   }
 
   const handleCopyLink = () => {
@@ -157,10 +62,6 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
     }
   }
 
-  if (authLoading || isLoading || !campaign) {
-    return <div className="container py-10">Loading campaign details...</div>
-  }
-
   return (
     <div className="container py-10">
       <h1 className="text-3xl font-bold mb-6">Campaign Details</h1>
@@ -170,8 +71,7 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-2xl">{campaign.title}</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">by {campaign.creator_id}</CardDescription>{" "}
-              {/* In a real app, fetch creator name */}
+              <CardDescription className="text-sm text-muted-foreground">by {campaign.creator_id}</CardDescription>
             </div>
             <Badge variant="outline">{campaign.objective}</Badge>
           </div>
@@ -204,12 +104,7 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Content Link:{" "}
-                <a
-                  href={campaign.content_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
+                <a href={campaign.content_link} target="_blank" rel="noopener noreferrer" className="text-primary underline">
                   View Content
                 </a>
               </p>
@@ -239,8 +134,8 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
               </CardContent>
             </Card>
           ) : (
-            <Button onClick={handleJoinCampaign} disabled={isJoining} className="w-full">
-              {isJoining ? "Joining..." : "Join Campaign"}
+            <Button onClick={handleJoinCampaign} className="w-full">
+              Join Campaign
             </Button>
           )}
         </CardContent>

@@ -1,9 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,96 +14,41 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, MoreHorizontal, Plus, Users, Loader2, Play } from "lucide-react" // Added MousePointerClick, Loader2, Play
+import { BarChart3, MoreHorizontal, Plus, Users, Loader2, Play } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client" // Import client-side Supabase client
 
-interface Campaign {
-  id: string // Changed to string for UUID
-  creator_id: string
-  title: string
-  objective: string
-  budget: number
-  spent_budget: number // Changed from 'spent' to 'spent_budget' to match DB
-  promoters_count: number // Changed from 'promoters' to 'promoters_count'
-  clicks_count: number // Changed from 'clicks' to 'clicks_count'
-  status: string
-  created_at: string // Changed from 'createdAt' to 'created_at'
-}
-
+// TODO: Re-implement with BetterAuth and Cloudflare Workers
 export default function CampaignsPage() {
-  const { user, userType, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient() // Initialize client-side Supabase
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true)
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-    } else if (!authLoading && userType !== "creator") {
-      router.push("/dashboard")
-    } else if (user && userType === "creator") {
-      fetchCreatorCampaigns()
-
-      // Set up Realtime listener
-      const channel = supabase
-        .channel("public:campaigns")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "campaigns", filter: `creator_id=eq.${user.id}` },
-          (payload) => {
-            console.log("Realtime change received for campaigns:", payload)
-            if (payload.eventType === "INSERT") {
-              setCampaigns((prev) => [payload.new as Campaign, ...prev])
-            } else if (payload.eventType === "UPDATE") {
-              setCampaigns((prev) =>
-                prev.map((c) => (c.id === (payload.new as Campaign).id ? (payload.new as Campaign) : c)),
-              )
-            } else if (payload.eventType === "DELETE") {
-              setCampaigns((prev) => prev.filter((c) => c.id !== (payload.old as Campaign).id))
-            }
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [user, userType, authLoading, router, supabase]) // Add supabase to dependency array
-
-  const fetchCreatorCampaigns = async () => {
-    setIsLoadingCampaigns(true)
-    try {
-      const response = await fetch("/api/creator-campaigns")
-      const data = await response.json() // Always try to parse JSON
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch campaigns")
-      }
-      setCampaigns(data)
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Could not load campaigns.",
-        variant: "destructive",
-      })
-      setCampaigns([]) // Clear campaigns on error
-    } finally {
-      setIsLoadingCampaigns(false)
-    }
-  }
-
-  if (authLoading || isLoadingCampaigns) {
-    return (
-      <div className="container py-10 flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading campaigns...</span>
-      </div>
-    )
-  }
+  // Placeholder data
+  const campaigns = [
+    {
+      id: "1",
+      creator_id: "user1",
+      title: "Summer Sale Promotion",
+      objective: "product_sales",
+      budget: 10000000,
+      spent_budget: 4500000,
+      promoters_count: 58,
+      clicks_count: 12050,
+      status: "active",
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: "2",
+      creator_id: "user1",
+      title: "New App Launch",
+      objective: "website_traffic",
+      budget: 5000000,
+      spent_budget: 5000000,
+      promoters_count: 32,
+      clicks_count: 8500,
+      status: "paused",
+      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  ]
 
   return (
     <div className="container py-10">
