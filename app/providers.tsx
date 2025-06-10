@@ -20,7 +20,9 @@ function StatsigProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Initialize Statsig with user from BetterAuth context
-    const statsigUser = user ? { userID: user.id, email: user.email } : undefined
+    const statsigUser = user
+      ? { userID: user.id, email: user.email === null ? undefined : user.email }
+      : undefined;
     
     const client = new StatsigClient(
       "client-IrtmkOC2MMvnBYRKxw0NiB6EMz6pV1MLoJ7cBomnjHd",

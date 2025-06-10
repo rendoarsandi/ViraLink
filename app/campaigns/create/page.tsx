@@ -12,9 +12,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import AuthGuard from "@/components/auth-guard"; // Import AuthGuard
 
 // TODO: Re-implement with BetterAuth and Cloudflare Workers
-export default function CreateCampaignPage() {
+function CreateCampaignPageComponent() { // Renamed original component
   const router = useRouter()
   const { toast } = useToast()
 
@@ -200,6 +201,7 @@ export default function CreateCampaignPage() {
               {isLoading  ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {/* eslint-disable-next-line react/no-unescaped-entities */}
                   "Creating..."
                 </>
               ) : (
@@ -211,4 +213,13 @@ export default function CreateCampaignPage() {
       </Card>
     </div>
   )
+}
+
+// Wrap the original component with AuthGuard for export
+export default function CreateCampaignPage() {
+  return (
+    <AuthGuard>
+      <CreateCampaignPageComponent />
+    </AuthGuard>
+  );
 }

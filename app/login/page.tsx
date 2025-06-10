@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/components/ui/use-toast"
 import { Chrome } from "lucide-react"
+import { authClient } from "@/lib/auth-client" // Added import
 
-// TODO: Re-implement with BetterAuth
+// TODO: Re-implement with BetterAuth (In Progress)
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -23,28 +24,55 @@ export default function LoginPage() {
   const [userType, setUserType] = useState<"creator" | "promoter">("creator")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleOidcLogin = async () => {
+    setIsLoading(true)
+    try {
+      // For OIDC, it typically redirects. Direct errors are less common here
+      // unless config is wrong or authClient fails to initialize.
+      await authClient.signIn.social({
+        provider: "oidc", // Matches the provider key in lib/auth.ts
+        callbackURL: "/dashboard", // Redirect on success
+        errorCallbackURL: "/login", // Redirect on error
+      })
+      // If signIn.social doesn't throw and doesn't redirect immediately (e.g. if disableRedirect was true),
+      // you might need to handle the response. But default is redirect.
+      // setIsLoading(false) might not be reached if redirect occurs.
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    }
+  }
+
+  // Keep the old handler for mock buttons for now, or they can be updated/removed separately.
+  const handleDisabledLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     toast({
       title: "Feature not available",
-      description: "Login functionality is being migrated. Please try again later.",
+      description: "This login method is currently disabled or under construction.",
       variant: "destructive",
     })
     setIsLoading(false)
   }
+
 
   return (
     <div className="container flex items-center justify-center py-10 md:py-20">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Log in</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardDescription>Log in using your OIDC provider or select an option below.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleLogin}>
+        {/* Form submission can be removed if primary login is OIDC button */}
+        {/* For now, let's make the main button trigger OIDC, and disable form submission */}
+        <form onSubmit={(e) => { e.preventDefault(); handleOidcLogin(); }}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email (for reference, not used by OIDC button)</Label>
               <Input
                 id="email"
                 type="email"
@@ -52,11 +80,11 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={true} // Disabled as OIDC button is primary
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password (for reference, not used by OIDC button)</Label>
               <Input
                 id="password"
                 type="password"
@@ -64,16 +92,16 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={true} // Disabled as OIDC button is primary
               />
             </div>
             <div className="space-y-2">
-              <Label>I am a:</Label>
+              <Label>I am a: (for reference, not used by OIDC button)</Label>
               <RadioGroup
                 value={userType}
                 onValueChange={(value) => setUserType(value as "creator" | "promoter")}
                 className="flex flex-col space-y-1"
-                disabled={isLoading}
+                disabled={true} // Disabled as OIDC button is primary
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="creator" id="creator" />
@@ -87,19 +115,21 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Log in (Email/Password - Disabled)"}
+            {/* Primary OIDC Login Button */}
+            <Button type="button" className="w-full" onClick={handleOidcLogin} disabled={isLoading}>
+              {isLoading ? "Redirecting..." : "Log in with OIDC Provider"}
             </Button>
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">Or other options</span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleLogin} disabled={isLoading}>
-              <Chrome className="mr-2 h-4 w-4" /> Sign in with Google
+            {/* Kept Google button, also points to OIDC. Could be removed if redundant. */}
+            <Button variant="outline" className="w-full" onClick={handleOidcLogin} disabled={isLoading}>
+              <Chrome className="mr-2 h-4 w-4" /> Sign in with OIDC (formerly Google)
             </Button>
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">
@@ -113,7 +143,7 @@ export default function LoginPage() {
               <Button
                 variant="secondary"
                 className="flex-1"
-                onClick={handleLogin}
+                onClick={handleDisabledLogin} // Points to the old disabled handler
                 disabled={isLoading}
               >
                 Mock Creator
@@ -121,16 +151,16 @@ export default function LoginPage() {
               <Button
                 variant="secondary"
                 className="flex-1"
-                onClick={handleLogin}
+                onClick={handleDisabledLogin} // Points to the old disabled handler
                 disabled={isLoading}
               >
                 Mock Promoter
               </Button>
             </div>
             <div className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/register" className="text-primary underline-offset-4 hover:underline">
-                Sign up
+                Sign up / Register with OIDC Provider
               </Link>
             </div>
           </CardFooter>

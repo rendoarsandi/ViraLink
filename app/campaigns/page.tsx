@@ -106,7 +106,7 @@ export default function CampaignsPage() {
         </CardHeader>
         <CardContent>
           {campaigns.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">You haven't created any campaigns yet.</p>
+            <p className="text-muted-foreground text-center py-8">You haven&apos;t created any campaigns yet.</p>
           ) : (
             <Table>
               <TableHeader>

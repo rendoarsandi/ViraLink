@@ -1,6 +1,6 @@
-import * as BetterAuth from "better-auth"
+export const runtime = 'edge'; // Ensure Edge runtime
 
-console.log(BetterAuth)
+import { auth } from "@/lib/auth";
+import { toNextJsHandler } from "better-auth/next-js";
 
-export const GET = () => new Response("GET")
-export const POST = () => new Response("POST")
+export const { POST, GET } = toNextJsHandler(auth);
