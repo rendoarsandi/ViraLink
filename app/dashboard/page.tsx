@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BarChart3, DollarSign, Users, MousePointerClick, TrendingUp, CheckCircle, Clock } from "lucide-react"
@@ -23,16 +23,16 @@ interface PromoterCampaignForCreator {
   id: string
   clicks: number
   earnings: number
-  promoter_id: string
-  profiles: Profile
+  promoterId: string
+  promoter: Profile
 }
 
 interface CampaignForCreator {
   id: string
-  name: string
+  title: string
   status: "active" | "inactive" | "completed"
-  total_budget_idr: number
-  promoter_campaigns: PromoterCampaignForCreator[]
+  budget: number
+  promoterCampaigns: PromoterCampaignForCreator[]
 }
 
 interface TopPromoter {
@@ -53,13 +53,13 @@ interface ChartData {
 
 interface CampaignForPromoter {
     id: string;
-    name: string;
+    title: string;
     description: string;
-    start_date: string;
-    end_date: string;
+    startDate: string;
+    endDate: string;
     status: "active" | "inactive" | "completed";
-    target_audience: string;
-    cpc_idr: number;
+    targetAudience: string;
+    rewardRate: number;
 }
 
 interface PromoterCampaign {
@@ -71,8 +71,8 @@ interface PromoterCampaign {
 
 interface RecommendedCampaign {
   id: string;
-  name: string;
-  cpc_idr: number;
+  title: string;
+  rewardRate: number;
 }
 
 interface Payment {
@@ -123,7 +123,6 @@ function CreatorDashboard() {
   const [recentActivities, setRecentActivities] = useState<Activity[]>([])
   const [chartData, setChartData] = useState<ChartData[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     if (!user) return
@@ -132,35 +131,19 @@ function CreatorDashboard() {
       setLoading(true)
       try {
         // Fetch campaigns created by the user
-        const { data: campaigns, error: campaignsError } = await supabase
-          .from("campaigns")
-          .select(
-            `
-            *,
-            promoter_campaigns (
-              id,
-              clicks,
-              earnings,
-              promoter_id,
-              profiles (
-                id,
-                name
-              )
-            )
-          `
-          )
-          .eq("creator_id", user.id)
+        const response = await fetch('/api/creator-campaigns')
+        if (!response.ok) throw new Error('Failed to fetch campaigns')
+        const campaigns = await response.json()
 
-        if (campaignsError) throw campaignsError
         if (!campaigns) return
 
         // Calculate stats
-        const activeCampaigns = campaigns.filter(c => c.status === "active")
-        const allPromoterCampaigns = campaigns.flatMap(c => c.promoter_campaigns)
-        const uniquePromoterIds = new Set(allPromoterCampaigns.map(pc => pc.promoter_id))
-        const totalClicks = allPromoterCampaigns.reduce((sum, pc) => sum + pc.clicks, 0)
-        const totalBudget = campaigns.reduce((sum, c) => sum + c.total_budget_idr, 0)
-        const spentBudget = allPromoterCampaigns.reduce((sum, pc) => sum + pc.earnings, 0)
+        const activeCampaigns = campaigns.filter((c: any) => c.status === "active")
+        const allPromoterCampaigns = campaigns.flatMap((c: any) => c.promoterCampaigns || [])
+        const uniquePromoterIds = new Set(allPromoterCampaigns.map((pc: any) => pc.promoterId))
+        const totalClicks = allPromoterCampaigns.reduce((sum: number, pc: any) => sum + pc.clicks, 0)
+        const totalBudget = campaigns.reduce((sum: number, c: any) => sum + (c.budget || 0), 0)
+        const spentBudget = allPromoterCampaigns.reduce((sum: number, pc: any) => sum + (pc.earnings || 0), 0)
 
         setStats({
           activeCampaigns: activeCampaigns.length,
@@ -173,14 +156,18 @@ function CreatorDashboard() {
         // Prepare data for components
         setRecentCampaigns(campaigns.slice(0, 3))
 
-        const promoterPerformance = allPromoterCampaigns.reduce((acc, pc) => {
-          if (!pc.profiles) return acc; // Skip if profile is missing
-          acc[pc.promoter_id] = acc[pc.promoter_id] || { ...pc.profiles, totalClicks: 0 }
-          acc[pc.promoter_id].totalClicks += pc.clicks
+        const promoterPerformance = allPromoterCampaigns.reduce((acc: any, pc: any) => {
+          if (!pc.promoter) return acc; // Skip if promoter is missing
+          acc[pc.promoterId] = acc[pc.promoterId] || { 
+            id: pc.promoterId, 
+            name: pc.promoter.fullName || 'Unknown', 
+            totalClicks: 0 
+          }
+          acc[pc.promoterId].totalClicks += pc.clicks
           return acc
         }, {})
 
-        const sortedPromoters = Object.values(promoterPerformance).sort((a, b) => (b as any).totalClicks - (a as any).totalClicks)
+        const sortedPromoters = Object.values(promoterPerformance).sort((a: any, b: any) => b.totalClicks - a.totalClicks)
         setTopPromoters(sortedPromoters.slice(0, 3) as TopPromoter[])
 
         // Mock recent activities and chart data for now
@@ -202,7 +189,7 @@ function CreatorDashboard() {
     }
 
     fetchData()
-  }, [user, supabase])
+  }, [user])
   
   const budgetProgress = stats.totalBudget > 0 ? Math.round((stats.spentBudget / stats.totalBudget) * 100) : 0;
 
@@ -313,8 +300,8 @@ function CreatorDashboard() {
               {recentCampaigns.map(campaign => (
               <div key={campaign.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
                 <div>
-                  <p className="font-medium">{campaign.name}</p>
-                  <p className="text-sm text-muted-foreground">{campaign.promoter_campaigns.length} promoters active</p>
+                  <p className="font-medium">{campaign.title}</p>
+                  <p className="text-sm text-muted-foreground">{campaign.promoterCampaigns?.length || 0} promoters active</p>
                 </div>
                 <Link href={`/campaigns/${campaign.id}`}>
                   <Button variant="ghost" size="sm">
@@ -386,7 +373,6 @@ function PromoterDashboard() {
   const [recommendedCampaigns, setRecommendedCampaigns] = useState<RecommendedCampaign[]>([])
   const [paymentHistory, setPaymentHistory] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     if (!user) return
@@ -394,46 +380,10 @@ function PromoterDashboard() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        // Fetch promoter-specific data
-        const { data: promoterCampaigns, error: promoterError } = await supabase
-          .from("promoter_campaigns")
-          .select(
-            `
-            id,
-            clicks,
-            earnings,
-            campaigns!inner (
-              id,
-              name,
-              description,
-              start_date,
-              end_date,
-              status,
-              target_audience,
-              cpc_idr
-            )
-          `
-          )
-          .eq("promoter_id", user.id)
-
-        if (promoterError) throw promoterError
-        if (!promoterCampaigns) return
-
-        // Fetch recommended campaigns (simplified: campaigns not yet joined)
-        const joinedCampaignIds = promoterCampaigns.map(pc => pc.campaigns[0]?.id).filter(Boolean)
-        const query = supabase
-          .from("campaigns")
-          .select("id, name, cpc_idr")
-          .eq("status", "active")
-          .limit(3)
-        
-        if (joinedCampaignIds.length > 0) {
-            query.not("id", "in", `(${joinedCampaignIds.join(",")})`)
-        }
-
-        const { data: allCampaigns, error: campaignsError } = await query
-
-        if (campaignsError) throw campaignsError
+        // Fetch recommended campaigns
+        const response = await fetch('/api/discover-campaigns')
+        if (!response.ok) throw new Error('Failed to fetch campaigns')
+        const allCampaigns = await response.json()
 
         // Mock payment history for now
         const mockPayments: Payment[] = [
@@ -442,21 +392,23 @@ function PromoterDashboard() {
           { id: "PAY-003", date: "2024-05-01", amount: 450000, status: "Paid" },
         ]
 
+        // Mock promoter campaigns data for now
+        const mockPromoterCampaigns: PromoterCampaign[] = []
+
         // Calculate stats
-        const active = promoterCampaigns.filter(pc => pc.campaigns[0]?.status === "active")
-        const totalClicks = active.reduce((sum, pc) => sum + pc.clicks, 0)
-        const totalEarnings = active.reduce((sum, pc) => sum + pc.earnings, 0)
+        const totalClicks = mockPromoterCampaigns.reduce((sum, pc) => sum + pc.clicks, 0)
+        const totalEarnings = mockPromoterCampaigns.reduce((sum, pc) => sum + pc.earnings, 0)
         // Pending payment logic would be more complex, this is a placeholder
         const pendingPayment = totalEarnings * 0.2
 
         setStats({
-          activeCampaigns: active.length,
+          activeCampaigns: mockPromoterCampaigns.length,
           totalClicks,
           totalEarnings,
           pendingPayment,
         })
-        setActiveCampaigns(active)
-        setRecommendedCampaigns(allCampaigns || [])
+        setActiveCampaigns(mockPromoterCampaigns)
+        setRecommendedCampaigns(allCampaigns.slice(0, 3) || [])
         setPaymentHistory(mockPayments)
       } catch (error) {
         console.error("Error fetching promoter dashboard data:", error)
@@ -466,7 +418,7 @@ function PromoterDashboard() {
     }
 
     fetchData()
-  }, [user, supabase])
+  }, [user])
 
   if (loading) {
     return <div className="container py-10 text-center">Loading dashboard data...</div>
@@ -530,9 +482,9 @@ function PromoterDashboard() {
                 {activeCampaigns.map(pc => (
                   <div key={pc.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
                     <div>
-                      <p className="font-medium">{pc.campaigns[0]?.name}</p>
+                      <p className="font-medium">{pc.campaigns[0]?.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        Rp {pc.campaigns[0]?.cpc_idr.toLocaleString()} per click • {pc.clicks.toLocaleString()} clicks
+                        Rp {pc.campaigns[0]?.rewardRate.toLocaleString()} per click • {pc.clicks.toLocaleString()} clicks
                       </p>
                     </div>
                     <Link href={`/campaigns/${pc.campaigns[0]?.id}/promote`}>
@@ -559,8 +511,8 @@ function PromoterDashboard() {
                 {recommendedCampaigns.map(campaign => (
                   <div key={campaign.id} className="flex items-center justify-between border-b pb-3 last:border-b-0">
                     <div>
-                      <p className="font-medium">{campaign.name}</p>
-                      <p className="text-sm text-muted-foreground">Rp {campaign.cpc_idr.toLocaleString()} per click</p>
+                      <p className="font-medium">{campaign.title}</p>
+                      <p className="text-sm text-muted-foreground">Rp {campaign.rewardRate.toLocaleString()} per click</p>
                     </div>
                     <Link href={`/campaigns/${campaign.id}`}>
                       <Button variant="ghost" size="sm">

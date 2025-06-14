@@ -6,7 +6,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { createClient } from "@/lib/supabase/client"
+// Profile updates are now handled through BetterAuth
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,6 @@ import { useToast } from "@/components/ui/use-toast"
 export default function ProfilePage() {
   const { user, userType, isLoading: authLoading, logout } = useAuth()
   const router = useRouter()
-  const supabase = createClient()
   const { toast } = useToast()
 
   const [fullName, setFullName] = useState("")
@@ -28,8 +27,8 @@ export default function ProfilePage() {
     if (!authLoading && !user) {
       router.push("/login")
     } else if (user) {
-      setFullName(user.name)
-      setAvatarUrl(user.image)
+      setFullName(user.name || "")
+      setAvatarUrl(user.image || "")
     }
   }, [user, authLoading, router])
 
@@ -38,21 +37,13 @@ export default function ProfilePage() {
     setIsSaving(true)
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ full_name: fullName, avatar_url: avatarUrl })
-        .eq("id", user?.id)
-
-      if (error) throw error
-
+      // TODO: Implement profile update API endpoint for BetterAuth
+      // For now, show a message that this feature is not yet implemented
       toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+        title: "Feature not implemented",
+        description: "Profile updates will be available in a future version.",
+        variant: "destructive",
       })
-
-      // Re-fetch user data to update context (optional, or implement a direct update in context)
-      // For simplicity, we'll just rely on the next page load or manual refresh for context update
-      // In a real app, you might want to update the user object in auth-context directly
     } catch (error: any) {
       toast({
         title: "Error updating profile",

@@ -11,35 +11,36 @@ import { Badge } from "@/components/ui/badge"
 import { Search, DollarSign, Users, BarChart3, Loader2, CalendarDays } from "lucide-react" // Added CalendarDays
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client" // Import client-side Supabase client
-
 interface Campaign {
-  id: string // Changed to string for UUID
-  creator_id: string
+  id: string
+  creatorId: string
   title: string
-  description: string
-  objective: string
-  reward_model: string // Changed from 'rewardModel'
-  reward_rate: number // Changed from 'rewardRate'
-  budget: number
-  spent_budget: number // Added to match DB
-  promoters_count: number // Changed from 'promoters'
-  clicks_count: number // Added to match DB
+  description: string | null
+  objective: string | null
+  rewardModel: string | null
+  rewardRate: number | null
+  budget: number | null
+  spentBudget: number
+  promotersCount: number
+  clicksCount: number
   status: string
-  created_at: string // Added to match DB
-  content_link: string // Added to match DB
-  instructions: string // Added to match DB
-  // maxPromoters and creator are not directly from DB, but can be derived or added if needed
-  maxPromoters?: number // Keep for mock data consistency if needed
-  creator?: string // Keep for mock data consistency if needed
-  requirements?: string // Keep for mock data consistency if needed
+  createdAt: string
+  contentLink: string | null
+  instructions: string | null
+  creator: {
+    id: string
+    name: string | null
+    email: string | null
+  }
+  _count: {
+    promoterCampaigns: number
+  }
 }
 
 export default function DiscoverPage() {
   const { user, userType, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient() // Initialize client-side Supabase
   const [searchTerm, setSearchTerm] = useState("")
   const [filterObjective, setFilterObjective] = useState("all")
   const [filterRewardModel, setFilterRewardModel] = useState("all")
@@ -79,35 +80,16 @@ export default function DiscoverPage() {
       router.push("/dashboard")
     } else if (user && userType === "promoter") {
       fetchDiscoverCampaigns()
-
-      // Set up Realtime listener
-      const channel = supabase
-        .channel("public:campaigns_discover") // Use a different channel name if needed, or filter
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "campaigns" }, // Listen to all changes on campaigns table
-          (payload) => {
-            console.log("Realtime change received for discover campaigns:", payload)
-            // Re-fetch campaigns to ensure filters and RLS are applied correctly
-            // For a more optimized approach, you could manually update state based on payload.new/old
-            fetchDiscoverCampaigns()
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
     }
-  }, [user, userType, authLoading, router, supabase]) // Add supabase to dependency array
+  }, [user, userType, authLoading, router])
 
   const filteredCampaigns = availableCampaigns.filter((campaign) => {
     const matchesSearch =
       campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       campaign.description?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesObjective =
-      filterObjective === "all" || campaign.objective.toLowerCase().includes(filterObjective.toLowerCase())
-    const matchesRewardModel = filterRewardModel === "all" || campaign.reward_model === filterRewardModel
+      filterObjective === "all" || campaign.objective?.toLowerCase().includes(filterObjective.toLowerCase())
+    const matchesRewardModel = filterRewardModel === "all" || campaign.rewardModel === filterRewardModel
 
     return matchesSearch && matchesObjective && matchesRewardModel
   })
@@ -205,11 +187,12 @@ export default function DiscoverPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-xl font-semibold">{campaign.title}</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">by {campaign.creator_id}</CardDescription>{" "}
-                  {/* Placeholder for creator name */}
+                  <CardDescription className="text-sm text-muted-foreground">
+                    by {campaign.creator.name || campaign.creator.email || "Unknown Creator"}
+                  </CardDescription>
                 </div>
                 <Badge variant="outline" className="capitalize px-3 py-1 text-xs">
-                  {campaign.objective.replace(/_/g, " ")}
+                  {campaign.objective?.replace(/_/g, " ") || "General"}
                 </Badge>
               </div>
             </CardHeader>
@@ -221,7 +204,7 @@ export default function DiscoverPage() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <span className="text-base font-medium">
-                      Rp {campaign.reward_rate.toLocaleString()} {getRewardModelLabel(campaign.reward_model)}
+                      Rp {(campaign.rewardRate || 0).toLocaleString()} {getRewardModelLabel(campaign.rewardModel || "ppc")}
                     </span>
                   </div>
                 </div>
@@ -229,16 +212,16 @@ export default function DiscoverPage() {
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <span>{campaign.promoters_count} promoters joined</span>
+                    <span>{campaign.promotersCount} promoters joined</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    <span>Rp {(campaign.budget - campaign.spent_budget).toLocaleString()} budget left</span>
+                    <span>Rp {((campaign.budget || 0) - campaign.spentBudget).toLocaleString()} budget left</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CalendarDays className="h-4 w-4" />
-                  <span>Created: {new Date(campaign.created_at).toLocaleDateString()}</span>
+                  <span>Created: {new Date(campaign.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             </CardContent>

@@ -2,8 +2,9 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { authClient } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
+import { createDatabaseClient } from "@/lib/db"
 
 type UserType = "creator" | "promoter" | null
 
@@ -31,63 +32,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userType, setUserType] = useState<UserType>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
   const router = useRouter()
+  const db = createDatabaseClient()
 
   const fetchUserProfile = useCallback(
-    async (supabaseUser: any) => {
-      if (!supabaseUser) {
+    async (betterAuthUser: any) => {
+      if (!betterAuthUser) {
         setUser(null)
         setUserType(null)
         return
       }
 
       try {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("full_name, role, avatar_url")
-          .eq("id", supabaseUser.id)
-          .single()
+        // Try to find existing profile
+        const profile = await db.profile.findUnique({
+          where: { email: betterAuthUser.email },
+        })
 
-        if (error && error.code === "PGRST116") {
-          // No rows found
+        if (!profile) {
           // If profile doesn't exist, create it (e.g., for new Google sign-ups)
           const intendedRole = localStorage.getItem("pendingUserType") || "promoter" // Get role from local storage or default
           localStorage.removeItem("pendingUserType") // Clear pending type
 
-          const { data: newProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert({
-              id: supabaseUser.id,
-              full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split("@")[0],
-              email: supabaseUser.email,
-              avatar_url: supabaseUser.user_metadata?.avatar_url || `/placeholder.svg?height=32&width=32`,
-              role: intendedRole,
-            })
-            .select("full_name, role, avatar_url")
-            .single()
-
-          if (createError) throw createError
+          const newProfile = await db.profile.create({
+            data: {
+              name: betterAuthUser.name || betterAuthUser.email?.split("@")[0] || "User",
+              email: betterAuthUser.email,
+              userType: intendedRole,
+            },
+          })
 
           setUser({
-            id: supabaseUser.id,
-            name: newProfile.full_name,
-            email: supabaseUser.email,
-            image: newProfile.avatar_url,
-            role: newProfile.role,
+            id: betterAuthUser.id,
+            name: newProfile.name || "User",
+            email: betterAuthUser.email,
+            image: betterAuthUser.image || `/placeholder.svg?height=32&width=32`,
+            role: newProfile.userType as UserType,
           })
-          setUserType(newProfile.role)
-        } else if (error) {
-          throw error
+          setUserType(newProfile.userType as UserType)
         } else {
           setUser({
-            id: supabaseUser.id,
-            name: profile.full_name,
-            email: supabaseUser.email,
-            image: profile.avatar_url,
-            role: profile.role,
+            id: betterAuthUser.id,
+            name: profile.name || "User",
+            email: betterAuthUser.email,
+            image: betterAuthUser.image || `/placeholder.svg?height=32&width=32`,
+            role: profile.userType as UserType,
           })
-          setUserType(profile.role)
+          setUserType(profile.userType as UserType)
         }
       } catch (error) {
         console.error("Error fetching or creating user profile:", error)
@@ -95,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserType(null)
       }
     },
-    [supabase],
+    [db],
   )
 
   useEffect(() => {
@@ -119,45 +110,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 2. If no mock user, check Supabase session
-      const { data } = await supabase.auth.getSession()
-      const session = data?.session // Safely access session
-      if (isMounted) {
-        if (session?.user) {
-          await fetchUserProfile(session.user)
-        } else {
+      // 2. If no mock user, check BetterAuth session
+      try {
+        const session = await authClient.getSession()
+        if (isMounted) {
+          if (session?.data?.user) {
+            await fetchUserProfile(session.data.user)
+          } else {
+            setUser(null)
+            setUserType(null)
+          }
+          setIsLoading(false) // Set loading false after initial check
+        }
+      } catch (error) {
+        console.error("Failed to get session:", error)
+        if (isMounted) {
           setUser(null)
           setUserType(null)
+          setIsLoading(false)
         }
-        setIsLoading(false) // Set loading false after initial check
       }
     }
 
     handleInitialAuth()
 
-    // 3. Set up real-time listener for Supabase auth changes
-    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const subscription = data?.subscription // Safely access subscription
-      if (isMounted) {
-        setIsLoading(true) // Set loading true when auth state changes
-        if (session?.user) {
-          await fetchUserProfile(session.user)
-        } else {
-          setUser(null)
-          setUserType(null)
-          setIsLoading(false) // Set loading false after state is updated
-        }
-      }
-    })
+    // 3. For now, we'll skip the real-time listener as BetterAuth React client
+    // doesn't have onSessionChange method. We'll rely on manual session checks.
 
     return () => {
       isMounted = false // Cleanup flag
-      // Ensure subscription exists before unsubscribing
-      if (data?.subscription) {
-        data.subscription.unsubscribe()
-      }
     }
-  }, [supabase, fetchUserProfile]) // fetchUserProfile is a dependency because it's called inside useEffect
+  }, [fetchUserProfile]) // fetchUserProfile is a dependency because it's called inside useEffect
 
   const loginWithGoogle = async (type: UserType) => {
     setIsLoading(true)
@@ -165,13 +148,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (type) {
         localStorage.setItem("pendingUserType", type)
       }
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      
+      const result = await authClient.signIn.social({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
+        callbackURL: `${window.location.origin}/dashboard`,
       })
-      if (error) throw error
+      
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
     } catch (error) {
       console.error("Google login failed:", error)
       setIsLoading(false)
@@ -182,31 +167,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (name: string, email: string, password: string, type: UserType) => {
     setIsLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // First create the BetterAuth user
+      const result = await authClient.signUp.email({
         email,
         password,
-        options: {
-          data: {
-            full_name: name,
-            role: type,
-          },
-        },
+        name,
       })
 
-      if (error) throw error
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
 
-      if (data.user) {
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          full_name: name,
-          email: email,
-          role: type,
-          avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+      if (result.data?.user) {
+        // Create profile in our database
+        const profile = await db.profile.create({
+          data: {
+            name: name,
+            email: email || "",
+            userType: type || "promoter",
+          },
         })
-        if (profileError) throw profileError
 
         setUser({
-          id: data.user.id,
+          id: result.data.user.id,
           name: name,
           email: email,
           image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
@@ -249,8 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      await authClient.signOut()
       setUser(null)
       setUserType(null)
       localStorage.removeItem("mockUser")

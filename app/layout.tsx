@@ -1,7 +1,6 @@
 import type React from "react"
 import { Inter } from "next/font/google"
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Analytics } from "@vercel/analytics/next"
+// Note: Vercel analytics removed during Cloudflare migration
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -32,8 +31,7 @@ export default function RootLayout({
             <Toaster />
           </ThemeProvider>
         </Providers>
-        <SpeedInsights />
-        <Analytics />
+        {/* Analytics removed during Cloudflare migration */}
       </body>
     </html>
   )

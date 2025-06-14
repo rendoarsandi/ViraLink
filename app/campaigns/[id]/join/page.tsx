@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, Users, LinkIcon, Copy } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
+
 
 interface Campaign {
   id: string
@@ -39,7 +39,7 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
   const router = useRouter()
   const { user, userType, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
-  const supabase = createClient()
+  
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [joinedCampaign, setJoinedCampaign] = useState<JoinedCampaign | null>(null)
@@ -76,30 +76,18 @@ export default function JoinCampaignPage({ params }: { params: { id: string } })
   const fetchCampaignDetails = async () => {
     setIsLoading(true)
     try {
-      // Fetch campaign details (accessible by RLS for active campaigns)
-      const { data: campaignData, error: campaignError } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("id", campaignId)
-        .single()
-
-      if (campaignError) throw campaignError
-      setCampaign(campaignData)
-
-      // Check if the promoter has already joined this campaign
-      const { data: joinedData, error: joinedError } = await supabase
-        .from("promoter_campaigns")
-        .select("id, tracking_link, status")
-        .eq("promoter_id", user?.id)
-        .eq("campaign_id", campaignId)
-        .single()
-
-      if (joinedData) {
-        setJoinedCampaign(joinedData)
-      } else if (joinedError && joinedError.code !== "PGRST116") {
-        // PGRST116 means no rows found
-        throw joinedError
+      // Fetch campaign details from discover API
+      const campaignResponse = await fetch('/api/discover-campaigns')
+      if (!campaignResponse.ok) throw new Error('Failed to fetch campaigns')
+      
+      const campaigns = await campaignResponse.json()
+      const campaignData = campaigns.find((c: any) => c.id === campaignId)
+      
+      if (!campaignData) {
+        throw new Error('Campaign not found')
       }
+      
+      setCampaign(campaignData)
     } catch (error: any) {
       toast({
         title: "Error",
