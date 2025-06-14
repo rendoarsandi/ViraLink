@@ -18,26 +18,30 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, MoreHorizontal, Plus, Users, Loader2, Play } from "lucide-react" // Added MousePointerClick, Loader2, Play
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client" // Import client-side Supabase client
-
 interface Campaign {
-  id: string // Changed to string for UUID
-  creator_id: string
+  id: string
+  creatorId: string
   title: string
-  objective: string
-  budget: number
-  spent_budget: number // Changed from 'spent' to 'spent_budget' to match DB
-  promoters_count: number // Changed from 'promoters' to 'promoters_count'
-  clicks_count: number // Changed from 'clicks' to 'clicks_count'
+  description: string | null
+  objective: string | null
+  budget: number | null
+  spentBudget: number
+  promotersCount: number
+  clicksCount: number
   status: string
-  created_at: string // Changed from 'createdAt' to 'created_at'
+  createdAt: string
+  totalClicks: number
+  totalEarnings: number
+  activePromoters: number
+  _count: {
+    promoterCampaigns: number
+  }
 }
 
 export default function CampaignsPage() {
   const { user, userType, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient() // Initialize client-side Supabase
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true)
 
@@ -48,33 +52,8 @@ export default function CampaignsPage() {
       router.push("/dashboard")
     } else if (user && userType === "creator") {
       fetchCreatorCampaigns()
-
-      // Set up Realtime listener
-      const channel = supabase
-        .channel("public:campaigns")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "campaigns", filter: `creator_id=eq.${user.id}` },
-          (payload) => {
-            console.log("Realtime change received for campaigns:", payload)
-            if (payload.eventType === "INSERT") {
-              setCampaigns((prev) => [payload.new as Campaign, ...prev])
-            } else if (payload.eventType === "UPDATE") {
-              setCampaigns((prev) =>
-                prev.map((c) => (c.id === (payload.new as Campaign).id ? (payload.new as Campaign) : c)),
-              )
-            } else if (payload.eventType === "DELETE") {
-              setCampaigns((prev) => prev.filter((c) => c.id !== (payload.old as Campaign).id))
-            }
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
     }
-  }, [user, userType, authLoading, router, supabase]) // Add supabase to dependency array
+  }, [user, userType, authLoading, router])
 
   const fetchCreatorCampaigns = async () => {
     setIsLoadingCampaigns(true)

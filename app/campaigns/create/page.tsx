@@ -12,15 +12,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/lib/auth-context"
-import { createClient } from "@/lib/supabase/client" // Import client-side Supabase client
-import { v4 as uuidv4 } from "uuid" // For generating unique file names
 import { Loader2 } from "lucide-react"
 
 export default function CreateCampaignPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user, userType } = useAuth()
-  const supabase = createClient() // Initialize client-side Supabase
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -28,11 +25,9 @@ export default function CreateCampaignPage() {
   const [budget, setBudget] = useState("")
   const [rewardModel, setRewardModel] = useState("ppc")
   const [rewardRate, setRewardRate] = useState("")
-  const [contentLink, setContentLink] = useState("") // For external link
-  const [selectedFile, setSelectedFile] = useState<File | null>(null) // For file upload
+  const [contentLink, setContentLink] = useState("")
   const [instructions, setInstructions] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
 
   // Redirect if not creator
   if (userType !== "creator") {
@@ -40,19 +35,9 @@ export default function CreateCampaignPage() {
     return null
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
-      setContentLink("") // Clear external link if file is selected
-    } else {
-      setSelectedFile(null)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setIsUploading(false) // Reset upload status
 
     if (!user?.id) {
       toast({
@@ -64,47 +49,10 @@ export default function CreateCampaignPage() {
       return
     }
 
-    let finalContentLink = contentLink
-
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      setIsUploading(true)
-      const fileExtension = selectedFile.name.split(".").pop()
-      const filePath = `${user.id}/${uuidv4()}.${fileExtension}` // Unique path for the file
-
-      try {
-        const { data, error } = await supabase.storage
-          .from("campaign-content") // Use your Supabase bucket name
-          .upload(filePath, selectedFile, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-
-        if (error) throw error
-
-        const { data: publicUrlData } = supabase.storage.from("campaign-content").getPublicUrl(filePath)
-        finalContentLink = publicUrlData.publicUrl
-        toast({
-          title: "File Uploaded",
-          description: "Your content file has been uploaded successfully.",
-        })
-      } catch (error: any) {
-        toast({
-          title: "Upload Failed",
-          description: error.message || "There was a problem uploading your content.",
-          variant: "destructive",
-        })
-        setIsLoading(false)
-        setIsUploading(false)
-        return // Stop submission if upload fails
-      } finally {
-        setIsUploading(false)
-      }
-    } else if (!contentLink) {
-      // If no file and no external link, show error
+    if (!contentLink) {
       toast({
         title: "Content Required",
-        description: "Please provide either a content link or upload a file.",
+        description: "Please provide a content link.",
         variant: "destructive",
       })
       setIsLoading(false)
@@ -112,23 +60,27 @@ export default function CreateCampaignPage() {
     }
 
     try {
-      const { data, error } = await supabase.from("campaigns").insert({
-        creator_id: user.id,
-        title,
-        description,
-        objective,
-        budget: Number.parseInt(budget),
-        reward_model: rewardModel,
-        reward_rate: Number.parseInt(rewardRate),
-        content_link: finalContentLink, // Use the uploaded URL or external link
-        instructions,
-        status: "active", // Default status
-        promoters_count: 0,
-        clicks_count: 0,
-        spent_budget: 0,
+      const response = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          objective,
+          budget: Number.parseInt(budget),
+          rewardModel,
+          rewardRate: Number.parseInt(rewardRate),
+          contentLink,
+          instructions,
+        }),
       })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create campaign')
+      }
 
       toast({
         title: "Campaign created",
@@ -166,7 +118,7 @@ export default function CreateCampaignPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
-                disabled={isLoading || isUploading}
+                disabled={isLoading}
               />
             </div>
 
@@ -179,14 +131,14 @@ export default function CreateCampaignPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 required
                 className="min-h-[100px]"
-                disabled={isLoading || isUploading}
+                disabled={isLoading}
               />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="objective">Campaign Objective</Label>
-                <Select value={objective} onValueChange={setObjective} required disabled={isLoading || isUploading}>
+                <Select value={objective} onValueChange={setObjective} required disabled={isLoading}>
                   <SelectTrigger id="objective">
                     <SelectValue placeholder="Select objective" />
                   </SelectTrigger>
@@ -209,7 +161,7 @@ export default function CreateCampaignPage() {
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   required
-                  disabled={isLoading || isUploading}
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -217,7 +169,7 @@ export default function CreateCampaignPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="rewardModel">Reward Model</Label>
-                <Select value={rewardModel} onValueChange={setRewardModel} required disabled={isLoading || isUploading}>
+                <Select value={rewardModel} onValueChange={setRewardModel} required disabled={isLoading}>
                   <SelectTrigger id="rewardModel">
                     <SelectValue placeholder="Select reward model" />
                   </SelectTrigger>
@@ -238,44 +190,24 @@ export default function CreateCampaignPage() {
                   value={rewardRate}
                   onChange={(e) => setRewardRate(e.target.value)}
                   required
-                  disabled={isLoading || isUploading}
+                  disabled={isLoading}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contentLink">Content Source</Label>
+              <Label htmlFor="contentLink">Content Link</Label>
               <Input
                 id="contentLink"
                 placeholder="Enter link to Google Drive, YouTube video, etc."
                 value={contentLink}
-                onChange={(e) => {
-                  setContentLink(e.target.value)
-                  setSelectedFile(null) // Clear selected file if external link is entered
-                }}
-                disabled={isLoading || isUploading || selectedFile !== null} // Disable if file is selected
+                onChange={(e) => setContentLink(e.target.value)}
+                disabled={isLoading}
+                required
               />
               <p className="text-sm text-muted-foreground">
                 Provide a link where promoters can access your content for promotion.
               </p>
-            </div>
-
-            <div className="relative flex items-center justify-center my-4">
-              <span className="w-full border-t" />
-              <span className="absolute bg-background px-2 text-sm text-muted-foreground">OR</span>
-              <span className="w-full border-t" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fileUpload">Upload Content File</Label>
-              <Input
-                id="fileUpload"
-                type="file"
-                onChange={handleFileChange}
-                disabled={isLoading || isUploading || contentLink !== ""} // Disable if external link is entered
-              />
-              <p className="text-sm text-muted-foreground">Upload a file directly (e.g., image, video, document).</p>
-              {selectedFile && <p className="text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -286,19 +218,19 @@ export default function CreateCampaignPage() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 className="min-h-[100px]"
-                disabled={isLoading || isUploading}
+                disabled={isLoading}
               />
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading || isUploading}>
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || isUploading}>
-              {isLoading || isUploading ? (
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isUploading ? "Uploading..." : "Creating..."}
+                  Creating...
                 </>
               ) : (
                 "Create Campaign"

@@ -8,41 +8,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, LinkIcon, Copy, Edit, Pause, Play, Loader2, Download } from "lucide-react" // Added Download icon
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Campaign {
   id: string
-  creator_id: string
+  creatorId: string
   title: string
   description: string
   objective: string
   budget: number
-  reward_model: string
-  reward_rate: number
-  content_link: string
+  rewardModel: string
+  rewardRate: number
+  contentLink: string
   instructions: string
   status: string
-  promoters_count: number
-  clicks_count: number
-  spent_budget: number
-  created_at: string
+  promotersCount: number
+  clicksCount: number
+  spentBudget: number
+  createdAt: string
 }
 
 interface PromoterCampaign {
   id: string
-  promoter_id: string
-  campaign_id: string
-  tracking_link: string
-  joined_at: string
+  promoterId: string
+  campaignId: string
+  trackingLink: string
+  joinedAt: string
   status: string
   clicks: number
   earnings: number
-  profiles: {
-    // Joined profile data
-    full_name: string
+  promoter: {
+    fullName: string
     email: string
-    avatar_url: string
+    avatarUrl: string
   } | null
 }
 
@@ -51,7 +49,6 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
   const router = useRouter()
   const { user, userType, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
-  const supabase = createClient()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [promoterCampaigns, setPromoterCampaigns] = useState<PromoterCampaign[]>([])
@@ -71,14 +68,6 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
     }
   }
 
-  // Function to check if a URL is likely a Supabase Storage public URL
-  const isSupabaseStorageUrl = (url: string) => {
-    return (
-      url.includes(process.env.NEXT_PUBLIC_SUPABASE_URL || "") &&
-      url.includes("/storage/v1/object/public/campaign-content/")
-    )
-  }
-
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login")
@@ -91,63 +80,28 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
     if (user && userType === "creator") {
       fetchCampaignDetails()
       fetchPromoterPerformance()
-
-      // Set up Realtime listener for campaign updates
-      const campaignChannel = supabase
-        .channel(`public:campaigns:id=eq.${campaignId}`)
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "campaigns", filter: `id=eq.${campaignId}` },
-          (payload) => {
-            console.log("Realtime campaign update:", payload)
-            setCampaign(payload.new as Campaign)
-          },
-        )
-        .subscribe()
-
-      // Set up Realtime listener for promoter_campaigns updates related to this campaign
-      const promoterCampaignsChannel = supabase
-        .channel(`public:promoter_campaigns:campaign_id=eq.${campaignId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "promoter_campaigns", filter: `campaign_id=eq.${campaignId}` },
-          (payload) => {
-            console.log("Realtime promoter_campaigns update:", payload)
-            fetchPromoterPerformance() // Re-fetch all promoter performance for simplicity
-          },
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(campaignChannel)
-        supabase.removeChannel(promoterCampaignsChannel)
-      }
     }
-  }, [user, userType, authLoading, router, campaignId, supabase])
+  }, [user, userType, authLoading, router, campaignId])
 
   const fetchCampaignDetails = async () => {
     setIsLoading(true)
     try {
-      const { data: campaignData, error: campaignError } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("id", campaignId)
-        .eq("creator_id", user?.id) // Ensure only creator can fetch their own campaign
-        .single()
-
-      if (campaignError) {
-        if (campaignError.code === "PGRST116") {
-          // No rows found
+      const response = await fetch(`/api/campaigns/${campaignId}`)
+      
+      if (!response.ok) {
+        if (response.status === 404) {
           toast({
             title: "Campaign Not Found",
             description: "The campaign you are looking for does not exist or you do not have access.",
             variant: "destructive",
           })
-          router.push("/campaigns") // Redirect to campaigns list
-        } else {
-          throw campaignError
+          router.push("/campaigns")
+          return
         }
+        throw new Error('Failed to fetch campaign')
       }
+
+      const campaignData = await response.json()
       setCampaign(campaignData)
     } catch (error: any) {
       toast({
@@ -163,28 +117,14 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
 
   const fetchPromoterPerformance = async () => {
     try {
-      const { data, error } = await supabase
-        .from("promoter_campaigns")
-        .select(`
-          id,
-          promoter_id,
-          campaign_id,
-          tracking_link,
-          joined_at,
-          status,
-          clicks,
-          earnings,
-          profiles (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq("campaign_id", campaignId)
-        .order("joined_at", { ascending: false })
+      const response = await fetch(`/api/campaigns/${campaignId}/promoters`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch promoter performance')
+      }
 
-      if (error) throw error
-      setPromoterCampaigns(data as PromoterCampaign[])
+      const data = await response.json()
+      setPromoterCampaigns(data)
     } catch (error: any) {
       console.error("Error fetching promoter performance:", error)
       toast({
@@ -210,19 +150,25 @@ export default function CreatorCampaignDetailsPage({ params }: { params: { id: s
     setIsUpdatingStatus(true)
     const newStatus = campaign.status === "active" ? "paused" : "active"
     try {
-      const { error } = await supabase
-        .from("campaigns")
-        .update({ status: newStatus })
-        .eq("id", campaign.id)
-        .eq("creator_id", user?.id) // Ensure only creator can update
+      const response = await fetch(`/api/campaigns/${campaign.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error('Failed to update campaign status')
+      }
+
+      const updatedCampaign = await response.json()
+      setCampaign(updatedCampaign)
 
       toast({
         title: "Campaign Status Updated",
         description: `Campaign is now ${newStatus}.`,
       })
-      // Realtime listener will update the state, no need to manually setCampaign
     } catch (error: any) {
       toast({
         title: "Error",

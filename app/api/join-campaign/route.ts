@@ -1,64 +1,106 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { v4 as uuidv4 } from "uuid" // For generating unique tracking links
+import { getServerSession } from "@/lib/auth-server"
+import { createDatabaseClient } from "@/lib/db"
+import { joinCampaignSchema } from "@/lib/validations"
+import { generateTrackingLink } from "@/lib/tracking"
 
 export async function POST(request: Request) {
-  const supabase = createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { campaignId } = await request.json()
-
-  if (!campaignId) {
-    return NextResponse.json({ error: "Campaign ID is required" }, { status: 400 })
-  }
-
-  const promoterId = session.user.id
-
   try {
+    // Get D1 database binding from runtime context (for Cloudflare Pages)
+    const d1Database = (globalThis as any).DB || undefined
+    
+    // Get authenticated session
+    const session = await getServerSession(d1Database)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Parse and validate request body
+    const body = await request.json()
+    const { campaignId } = joinCampaignSchema.parse(body)
+
+    const promoterId = session.user.id
+
+    // Create database client
+    const db = createDatabaseClient(d1Database)
+
     // Check if promoter has already joined this campaign
-    const { data: existingJoin, error: existingError } = await supabase
-      .from("promoter_campaigns")
-      .select("id")
-      .eq("promoter_id", promoterId)
-      .eq("campaign_id", campaignId)
-      .single()
+    const existingJoin = await db.promoterCampaign.findUnique({
+      where: {
+        unique_promoter_campaign: {
+          promoterId,
+          campaignId
+        }
+      }
+    })
 
     if (existingJoin) {
-      return NextResponse.json({ message: "You have already joined this campaign." }, { status: 200 })
-    }
-    if (existingError && existingError.code !== "PGRST116") {
-      // PGRST116 means no rows found
-      throw existingError
+      return NextResponse.json({ 
+        message: "You have already joined this campaign.",
+        trackingLink: existingJoin.trackingLink
+      }, { status: 200 })
     }
 
-    // Generate a unique tracking link
-    const trackingCode = uuidv4().replace(/-/g, "").substring(0, 10) // Shorten UUID for readability
-    const trackingLink = `${process.env.NEXT_PUBLIC_APP_URL}/track/${trackingCode}` // Replace with your actual app URL
+    // Verify campaign exists and is active
+    const campaign = await db.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true, status: true, title: true }
+    })
 
-    // Insert into promoter_campaigns table
-    const { data, error } = await supabase
-      .from("promoter_campaigns")
-      .insert({
-        promoter_id: promoterId,
-        campaign_id: campaignId,
-        tracking_link: trackingLink,
+    if (!campaign) {
+      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
+    }
+
+    if (campaign.status !== "active") {
+      return NextResponse.json({ error: "Campaign is not active" }, { status: 400 })
+    }
+
+    // Generate a secure tracking link
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const trackingLink = generateTrackingLink(baseUrl)
+
+    // Create promoter campaign record in a transaction
+    const result = await db.$transaction(async (tx) => {
+      // Insert into promoter_campaigns table
+      const promoterCampaign = await tx.promoterCampaign.create({
+        data: {
+          promoterId,
+          campaignId,
+          trackingLink,
+          status: "joined"
+        },
+        select: {
+          id: true,
+          trackingLink: true,
+          joinedAt: true
+        }
       })
-      .select()
-      .single()
 
-    if (error) throw error
+      // Update campaign promoters count
+      await tx.campaign.update({
+        where: { id: campaignId },
+        data: {
+          promotersCount: {
+            increment: 1
+          }
+        }
+      })
 
-    // The trigger `update_promoters_count_on_join` will automatically update campaigns.promoters_count
+      return promoterCampaign
+    })
 
-    return NextResponse.json({ message: "Successfully joined campaign!", trackingLink: data.tracking_link })
-  } catch (error: any) {
+    return NextResponse.json({ 
+      message: "Successfully joined campaign!", 
+      trackingLink: result.trackingLink,
+      joinedAt: result.joinedAt
+    })
+  } catch (error) {
     console.error("Error joining campaign:", error)
-    return NextResponse.json({ error: error.message || "Failed to join campaign." }, { status: 500 })
+    
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    
+    return NextResponse.json({ error: "Failed to join campaign" }, { status: 500 })
   }
 }
